@@ -3,6 +3,8 @@
 # obstacles displayed as x represented by 1
 # game is 50 char wide 100 char tall endless board
 import numpy as np
+import human_interface
+from tkinter import Tk
 
 import matplotlib.pyplot as plt
 
@@ -60,4 +62,10 @@ class Env:
         self.board_state.pop(0)
         return 0
 
+
+test = Env()
+root = Tk()
+GUI = human_interface.Container(test.board_state, test.width, test.height)
+root.geometry("400x800+300+300")
+root.mainloop()
 
