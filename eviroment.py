@@ -1,0 +1,63 @@
+#Specify the world ang game
+# agent displayed as 'o' represented by 2
+# obstacles displayed as x represented by 1
+# game is 50 char wide 100 char tall endless board
+import numpy as np
+
+import matplotlib.pyplot as plt
+
+class Env:
+    def __init__(self, diff=1, board_width=50, board_height=100):
+        """
+        each square has a 1/30 * diff chance of becoming a barrier source
+        once a barrier source is chosen it has a 1/2 chance of extending in both directions, until
+        it is not extended.
+        :param diff: The difficulty level
+        """
+        self.diff = diff
+        self.line_count = 0
+        self.width = board_width
+        self.height = board_height
+        self.timeout = .01
+        self.board_state = []
+        for i in range(int(self.height/2)):
+            self.board_state.append(np.zeros(self.width))
+        for i in range(int(self.height/2)):
+            self.board_state.append(self.generate_line())
+        self.board_state[5][int(self.width/2)] = 2
+
+    def generate_line(self) -> np.ndarray:
+        dist = np.random.uniform(size=self.width)
+        threshold = float(1/30)*self.diff
+        sources = np.argwhere(dist < threshold)
+        line = np.zeros(self.width)
+        line[sources] = 1
+        for i in range(self.width):
+            if line[i] == 1:
+                num = np.random.uniform()
+                if num <= .5 and i+1 < self.width:
+                    line[i+1] = 1
+        return line
+
+
+    def step(self, command):
+        nline = self.generate_line()
+        self.board_state.append(nline)
+        index = np.argwhere(self.board_state[5] == 2)
+        self.board_state[5][index] = 0
+        if command == 'a' and index > 0:
+            if self.board_state[6][index - 1] == 1:
+                return -1
+            self.board_state[11][index - 1] = 2
+        elif command == 'd' and index < self.height - 1:
+            if self.board_state[6][index + 1] == 1:
+                return -1
+            self.board_state[6][index + 1] = 2
+        else:
+            if self.board_state[6][index] == 1:
+                return -1
+            self.board_state[6][index] = 2
+        self.board_state.pop(0)
+        return 0
+
+
