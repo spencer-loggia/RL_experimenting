@@ -2,7 +2,6 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="632b6cc8-cfdf-4448-a54f-a76963a865c0" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/game_loop.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/eviroment.py" beforeDir="false" afterPath="$PROJECT_DIR$/eviroment.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/human_interface.py" beforeDir="false" afterPath="$PROJECT_DIR$/human_interface.py" afterDir="false" />
@@ -117,22 +116,22 @@
       <breakpoints>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/human_interface.py</url>
-          <line>29</line>
+          <line>30</line>
           <option name="timeStamp" value="10" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/human_interface.py</url>
-          <line>32</line>
+          <line>33</line>
           <option name="timeStamp" value="11" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/human_interface.py</url>
-          <line>45</line>
+          <line>49</line>
           <option name="timeStamp" value="16" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/human_interface.py</url>
-          <line>35</line>
+          <line>37</line>
           <option name="timeStamp" value="17" />
         </line-breakpoint>
       </breakpoints>
