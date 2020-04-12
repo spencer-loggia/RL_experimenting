@@ -1,9 +1,4 @@
-#Specify the world ang game
-# agent displayed as 'o' represented by 2
-# obstacles displayed as x represented by 1
-# game is 50 char wide 100 char tall endless board
 import numpy as np
-import human_interface
 from tkinter import Tk
 
 import matplotlib.pyplot as plt
@@ -37,35 +32,28 @@ class Env:
         for i in range(self.width):
             if line[i] == 1:
                 num = np.random.uniform()
-                if num <= .5 and i+1 < self.width:
+                if num <= .75 and i+1 < self.width:
                     line[i+1] = 1
         return line
 
+    def move_left(self):
+        index = np.argwhere(self.board_state[5] == 2)
+        self.board_state[5][index] = 0
+        self.board_state[5][index - 1] = 2
+
+    def move_right(self):
+        index = np.argwhere(self.board_state[5] == 2)
+        self.board_state[5][index] = 0
+        self.board_state[5][index + 1] = 2
 
     def step(self, command):
         nline = self.generate_line()
         self.board_state.append(nline)
         index = np.argwhere(self.board_state[5] == 2)
         self.board_state[5][index] = 0
-        if command == 'a' and index > 0:
-            if self.board_state[6][index - 1] == 1:
-                return -1
-            self.board_state[11][index - 1] = 2
-        elif command == 'd' and index < self.height - 1:
-            if self.board_state[6][index + 1] == 1:
-                return -1
-            self.board_state[6][index + 1] = 2
-        else:
-            if self.board_state[6][index] == 1:
-                return -1
-            self.board_state[6][index] = 2
+        if self.board_state[6][index] == 1:
+            return -1
+        self.board_state[6][index] = 2
         self.board_state.pop(0)
         return 0
-
-
-test = Env()
-root = Tk()
-GUI = human_interface.Container(test.board_state, test.width, test.height)
-root.geometry("400x800+300+300")
-root.mainloop()
 

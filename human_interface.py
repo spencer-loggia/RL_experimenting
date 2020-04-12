@@ -1,44 +1,62 @@
-import tkinter
+import tkinter as tk
+import eviroment
 import numpy as np
 from tkinter import Tk, Canvas, Frame, BOTH
+from PIL import Image, ImageTk
+import scipy.ndimage
+import time
 
-class Container(Frame):
-    def __init__(self, board_state, w, h):
-        super().__init__()
-        self.height = h
-        self.width = w
-        self.board_state = board_state
-        self.initUI()
+class Interface:
+    def __init__(self, human_disp=True):
+        self.E = eviroment.Env()
+        self.raw_state = self.E.board_state
+        if human_disp:
+            self.root = Tk()
+            np_img = np.array(self.raw_state) * int(255 / 2)
+            np_img = scipy.ndimage.zoom(np_img, 8, order=0)
+            img = ImageTk.PhotoImage(image=Image.fromarray(np_img), master=self.root)
+            self.canvas = Canvas(self.root, width=np_img.shape[1], height=np_img.shape[0])
+            self.canvas.create_image(1, 2, anchor="nw", image=img)
+            self.canvas.pack()
+            self.canvas.update_idletasks()
+            self.canvas.update()
+            self.command = ''
+            self.frame = Frame(self.root, width=100, height=100)
+            self.root.bind('<Left>', self.leftKey)
+            self.root.bind('<Right>', self.rightKey)
+            self.frame.pack()
 
-    def initUI(self):
-        self.master.title("RUN")
-        self.pack(fill=BOTH, expand=1)
-        self.render_board()
+    def leftKey(self, event):
+        self.E.move_left()
 
-    def render_board(self, canvas):
-        canvas = Canvas(self)
-        pix_w = 400 / self.width
-        pix_h = 800 / self.height
-        for i in range(self.height):
-            for j in range(self.width):
-                if self.board_state[i][j] == 1:
-                    x = pix_w * j
-                    y = pix_h * i
-                    canvas.create_rectangle(x, y, x+pix_w, y+pix_h, outline="#fb0", fill="#fb0")
-                    canvas.pack(fill=BOTH, expand=1)
-                elif self.board_state[i][j] == 2:
-                    x = pix_w * j
-                    y = pix_h * i
-                    canvas.create_rectangle(x, y, x + pix_w, y + pix_h, outline="#05f", fill="#05f")
-                    canvas.pack(fill=BOTH, expand=1)
+    def rightKey(self, event):
+        self.E.move_right()
+
+    def display_frame(self):
+        self.canvas.delete('all')
+        np_img = np.array(self.raw_state) * int(255 / 2)
+        np_img = scipy.ndimage.zoom(np_img, 8, order=0)
+        img = ImageTk.PhotoImage(image=Image.fromarray(np_img), master=self.root)
+        self.canvas.create_image(1, 2, anchor="nw", image=img)
+        self.canvas.pack()
+        self.root.update_idletasks()
+        self.root.update()
+
+    def update_board(self):
+        win_state = self.E.step(self.command)
+        self.raw_state = self.E.board_state
+        self.display_frame()
+        self.command = ''
+
+    def game_loop(self):
+        while True:
+            time.sleep(.2)
+            self.update_board()
 
 
 
-def main():
-    root = Tk()
-    ex = Container([[0,1],[0,0]], 2, 2)
-    root.geometry("400x800+300+300")
-    root.mainloop()
+GUI = Interface()
+GUI.game_loop()
 
-if __name__ == '__main__':
-    main()
+
+
