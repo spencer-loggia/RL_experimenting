@@ -21,4 +21,10 @@ class Play:
 class Network(nn.Module):
     def __init__(self):
         super().__init__()
-        self.conv_block = nn.Sequential()
+        self.conv_block = nn.Sequential(
+            nn.Conv2d(1, 100, 5),
+            nn.ReLU(),
+            nn.Conv2d(100, 50, 3, stride=2),
+            nn.ReLU(),
+            nn.MaxPool2d(5)
+        )
