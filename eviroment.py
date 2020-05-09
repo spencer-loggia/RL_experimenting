@@ -17,9 +17,9 @@ class Env:
         self.height = board_height
         self.timeout = .01
         self.board_state = []
-        for i in range(int(self.height/2)):
+        for i in range(int(self.height/4)):
             self.board_state.append(np.zeros(self.width))
-        for i in range(int(self.height/2)):
+        for i in range(int(3*self.height/4)):
             self.board_state.append(self.generate_line())
         self.board_state[5][int(self.width/2)] = 2
 
@@ -39,13 +39,15 @@ class Env:
 
     def move_left(self):
         index = np.argwhere(self.board_state[5] == 2)
-        self.board_state[5][index] = 0
-        self.board_state[5][index - 1] = 2
+        if index - 1 >= 0:
+            self.board_state[5][index] = 0
+            self.board_state[5][index - 1] = 2
 
     def move_right(self):
         index = np.argwhere(self.board_state[5] == 2)
-        self.board_state[5][index] = 0
-        self.board_state[5][index + 1] = 2
+        if index + 1 < self.width:
+            self.board_state[5][index] = 0
+            self.board_state[5][index + 1] = 2
 
     def step(self, command):
         nline = self.generate_line()

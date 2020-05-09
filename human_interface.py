@@ -11,6 +11,9 @@ class Interface:
         self.E = eviroment.Env()
         self.raw_state = self.E.board_state
         self.human_disp = human_disp
+        self.human_player = human_player
+        self.command = ''
+        self.root = None
         if human_disp:
             self.root = Tk()
             board_img = np.array(self.raw_state) * int(255 / 2)
@@ -21,7 +24,6 @@ class Interface:
             self.canvas.pack()
             self.canvas.update_idletasks()
             self.canvas.update()
-            self.command = ''
         if human_player:
             self.frame = Frame(self.root, width=100, height=100)
             self.root.bind('<Left>', self.leftKey)
@@ -29,10 +31,12 @@ class Interface:
             self.frame.pack()
 
     def leftKey(self, event):
-        self.E.move_left()
+        if self.human_player:
+            self.E.move_left()
 
     def rightKey(self, event):
-        self.E.move_right()
+        if self.human_player:
+            self.E.move_right()
 
     def display_frame(self, toContinue=True):
         if toContinue:
@@ -54,10 +58,12 @@ class Interface:
         win_state = self.E.step(self.command)
         self.raw_state = self.E.board_state
         if win_state == 0:
-            self.display_frame()
-            return 0, None
+            cur_frame = self.display_frame()
+            return 0, cur_frame
         else:
-            cur_frame = self.display_frame(toContinue=False)
+            cur_frame = None
+            if self.root is not None:
+                self.root.destroy()
             return self.E.line_count, cur_frame
 
     def game_loop(self):
@@ -67,10 +73,9 @@ class Interface:
             state, cur_frame = self.update_board()
         return state
 
+#test = Interface()
+#test.game_loop()
 
-
-GUI = Interface()
-GUI.game_loop()
 
 
 
