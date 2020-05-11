@@ -32,23 +32,31 @@ class Interface:
 
     def leftKey(self, event):
         if self.human_player:
-            self.E.move_left()
+            if self.E.move_left() == 1 and self.root is not None:
+                #self.canvas.destroy()
+                self.root.destroy()
 
     def rightKey(self, event):
         if self.human_player:
-            self.E.move_right()
+            if self.E.move_right() == 1 and self.root is not None:
+                #self.canvas.destroy()
+                self.root.destroy()
 
     def display_frame(self, toContinue=True):
         if toContinue:
             board_img = np.array(self.raw_state) * int(255 / 2)
             if self.human_disp:
-                self.canvas.delete('all')
-                np_img = scipy.ndimage.zoom(board_img, 8, order=0)
-                img = ImageTk.PhotoImage(image=Image.fromarray(np_img), master=self.root)
-                self.canvas.create_image(1, 2, anchor="nw", image=img)
-                self.canvas.pack()
-                self.root.update_idletasks()
-                self.root.update()
+                try:
+                    self.canvas.delete('all')
+                    np_img = scipy.ndimage.zoom(board_img, 8, order=0)
+                    img = ImageTk.PhotoImage(image=Image.fromarray(np_img), master=self.root)
+                    self.canvas.create_image(1, 2, anchor="nw", image=img)
+                    self.canvas.pack()
+                    self.root.update_idletasks()
+                    self.root.update()
+                except tk.TclError:
+                    if self.root is not None:
+                        self.root = None
             return board_img
         else:
             print("Game Over. Score: " + str(self.E.line_count))
@@ -72,9 +80,9 @@ class Interface:
             time.sleep(.05)
             state, cur_frame = self.update_board()
         return state
-
-#test = Interface()
-#test.game_loop()
+#
+# test = Interface()
+# test.game_loop()
 
 
 
