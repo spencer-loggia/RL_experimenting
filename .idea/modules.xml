@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/endless_runner.iml" filepath="$PROJECT_DIR$/.idea/endless_runner.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/RL_experimenting.iml" filepath="$PROJECT_DIR$/.idea/RL_experimenting.iml" />
     </modules>
   </component>
 </project>
