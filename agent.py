@@ -12,7 +12,7 @@ class Agent:
     def __init__(self, lr=.0001):
         self.interface = None
         self.model = ConvNetwork().float().cuda(0)
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
+        self.optimizer = torch.optim.SGD(self.model.parameters(), lr=lr)
         self.cur_frame = None
 
     def agent_game_loop(self):
@@ -38,7 +38,7 @@ class Agent:
                 self.interface = human_interface.Interface(human_disp=False, human_player=False)
             self.cur_frame = np.array(self.interface.E.board_state)[4:46, :]
             self.optimizer.zero_grad()
-            score = self.recursive_train(torch.zeros(3), i / NUM_GAMES, 0, max_drop, max_explore, mode)
+            score = self.recursive_train(torch.zeros(50), i / NUM_GAMES, 0, max_drop, max_explore, mode)
             data_file.write(str(i) + ',' + str(score) + '\n')
             print("score on game " + str(i) + ": " + str(score))
 
@@ -47,18 +47,18 @@ class Agent:
         count += 1
         game_over = False
         x = torch.from_numpy(self.cur_frame).cuda(0)
-        logits = self.model(x.float(), prev.float(), e=min(max_drop, 1-completion_ratio), training=True)
+        logits, hidden = self.model(x.float(), prev.float(), e=min(max_drop, 1-completion_ratio), training=True)
         cpu_logits = logits.cpu()
         if count % 50 == 0:
             print("move " + str(count) + " probs:  " + str(logits))
         epsilon = np.random.random(1)
         if epsilon <= (1-max_explore)*np.exp(.7*completion_ratio):
             if mode == 'det':
-                move = torch.argmax(cpu_logits)
+                move = torch.argmax(cpu_logits.data)
             elif mode == 'stoch':
                 move = np.random.choice([0, 1, 2], p=cpu_logits.data.numpy().reshape(3))
             elif mode == 'threshold':
-                if (max(cpu_logits)[0] < .4) and (min(cpu_logits)[0] > .25):
+                if (max(cpu_logits.data)[0] < .5) and (min(cpu_logits.data)[0] > .2):
                     move = np.random.choice([0, 1, 2], p=cpu_logits.data.numpy().reshape(3))
                 else:
                     move = torch.argmax(cpu_logits)
@@ -86,12 +86,16 @@ class Agent:
             y = torch.ones(3).cuda(0)
             y[move] = 0
             y = y.reshape(1, -1)
-            loss = coef * nn.functional.binary_cross_entropy(logits, y)
+            loss = (1 / (np.log(state/9 - 9)*(logits.pow(2)).sum())) * nn.functional.binary_cross_entropy(logits, y)
         else:  # state == 0
-            y = torch.zeros(3).cuda(0)
-            y[move] = 1
+            y = torch.ones(3).cuda(0)
+            y[move] = 0
             y = y.reshape(1, -1)
-            loss = 0.0001*nn.functional.binary_cross_entropy(logits, y)
+            if state > 95:
+                loss = .001*np.sqrt(state-95)*nn.functional.binary_cross_entropy(logits, y)*(logits.pow(2)).sum().pow(2)
+            else:
+                loss = .0001*nn.functional.binary_cross_entropy(logits, y)*(logits.pow(2)).sum()
+
 
         # DO NOT zero grad. Allow time propagation
         loss.backward(retain_graph=True)
@@ -101,15 +105,18 @@ class Agent:
             return state
         else:
             #time.sleep(.01)
-            return self.recursive_train(logits, completion_ratio, count, max_drop, max_explore, mode)
+            return self.recursive_train(hidden, completion_ratio, count, max_drop, max_explore, mode)
 
-    def play_game(self, prev):
+    def play_game(self, prev, count=0):
         game_over = False
         x = torch.from_numpy(self.cur_frame).cuda(0)
-        logits = self.model(x.float(), prev.float(), e=.2, training=False)
+        logits, hidden = self.model(x.float(), prev.float(), e=.2, training=True)
         cpu_logits = logits.cpu()
-        epsilon = np.random.random(1)
-        move = torch.argmax(cpu_logits)  # np.random.choice([0, 1, 2], p=cpu_logits.data.numpy().reshape(3)) #
+        print("move " + str(count) + " probs:  " + str(logits))
+        if (max(cpu_logits.data)[0] < .5) and (min(cpu_logits.data)[0] > .2):
+            move = np.random.choice([0, 1, 2], p=cpu_logits.data.numpy().reshape(3))
+        else:
+            move = torch.argmax(cpu_logits)
         if move == 1:
             if 1 == self.interface.E.move_left():
                 game_over = True
@@ -130,26 +137,25 @@ class Agent:
             return state
         else:
             time.sleep(.01)
-            return self.play_game(logits)
+            return self.play_game(hidden, count=count+1)
 
     def eval(self, num_games):
         for i in range(num_games):
             self.interface = human_interface.Interface(human_player=False)
             self.cur_frame = np.array(self.interface.E.board_state)[4:46, :]
             self.optimizer.zero_grad()
-            score = self.play_game(torch.zeros(3))
+            score = self.play_game(torch.zeros(50))
             print("score on game " + str(i) + ": " + str(score))
 
 
-
-
-torch.cuda.set_device(0)
-torch.autograd.set_detect_anomaly(True)
-bob = Agent(lr=.001)
-bob.model = torch.load('./models/trained1000.pkl')
-#bob.eval(10)
-bob.train(NUM_GAMES=1000, max_drop=.5, max_explore=.4, mode='threshold', disp_iter=25, save_iter=500)
-torch.cuda.device_count()
+if __name__ == "__main__":
+    torch.cuda.set_device(0)
+    torch.autograd.set_detect_anomaly(True)
+    bob = Agent(lr=.001)
+    #bob.model = torch.load('./models/trained1000.pkl')
+    #bob.eval(10)
+    bob.train(NUM_GAMES=1001, max_drop=.5, max_explore=.6, mode='threshold', disp_iter=50, save_iter=500)
+    torch.cuda.device_count()
 
 
 

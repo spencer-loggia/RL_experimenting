@@ -40,7 +40,9 @@ class Env:
                 if num <= .5 and i+1 < self.width:
                     line[i+1] = 1
         line[0] = 1
+        line[1] = 1
         line[self.width - 1] = 1
+        line[self.width - 2] = 1
         return line
 
     def move_left(self):

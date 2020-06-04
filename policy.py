@@ -92,11 +92,11 @@ class ConvNetwork(nn.Module):
         # self.ln2 = nn.Linear(2500, 1250).cuda(0)
 
         self.fc1 = nn.Linear(600, 150).cuda(0)
-        self.fc2 = nn.Linear(150, 10).cuda(0)
-        self.fc3 = nn.Linear(13, 3).cuda(0)
+        self.fc2 = nn.Linear(200, 50).cuda(0)
+        self.fc3 = nn.Linear(50, 3).cuda(0)
         self.soft = nn.Softmax().cuda(0)
 
-    def forward(self, x, prev_move, e=.5, training=True):
+    def forward(self, x, hidden, e=.5, training=True):
         torch.cuda.set_device(0)
         self.cuda(0)
 
@@ -120,17 +120,17 @@ class ConvNetwork(nn.Module):
         x = self.lrelu(x).cuda(0)
         x = nn.functional.dropout(x, p=e, training=training).cuda(0)
 
-        x = self.fc2(x).cuda(0)
-        y = self.lrelu(x).cuda(0)
-        y = nn.functional.dropout(y, p=e, training=training).cuda(0)
+        hidden = hidden.data.reshape(1, -1).cuda(0)
+        hidden = torch.cat((x, hidden), 1).cuda(0)
 
-        prev_move = prev_move.data.reshape(1, -1).cuda(0)
-        y = torch.cat((y, prev_move), 1).cuda(0)
+        x = self.fc2(hidden).cuda(0)
+        y = self.lrelu(x).cuda(0)
+        y = next_hidden = nn.functional.dropout(y, p=e, training=training).cuda(0)
 
         y = self.fc3(y).cuda(0)
         y = self.lrelu(y).cuda(0)
 
         action_probs = self.soft(y).cuda(0)
-        return action_probs.cuda(0).clone()
+        return action_probs.cuda(0).clone(), next_hidden
 
 

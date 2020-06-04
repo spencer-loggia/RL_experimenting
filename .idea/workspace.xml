@@ -20,16 +20,10 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="f11e1d12-4f2a-47d6-8fc4-d14a0ddda92e" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/.idea/RL_experimenting.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/endless_runner.iml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/libraries/R_User_Library.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/agent.py" beforeDir="false" afterPath="$PROJECT_DIR$/agent.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/data/scores.csv" beforeDir="false" afterPath="$PROJECT_DIR$/data/scores.csv" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/models/trained.pkl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/eviroment.py" beforeDir="false" afterPath="$PROJECT_DIR$/eviroment.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/models/trained1000.pkl" beforeDir="false" afterPath="$PROJECT_DIR$/models/trained1000.pkl" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/models/trained500.pkl" beforeDir="false" afterPath="$PROJECT_DIR$/models/trained500.pkl" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/policy.py" beforeDir="false" afterPath="$PROJECT_DIR$/policy.py" afterDir="false" />
@@ -52,6 +46,7 @@
     <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
     <property name="SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
     <property name="last_opened_file_path" value="$PROJECT_DIR$/../biophysics/ComplexAssemblyAnalysis" />
+    <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable" />
   </component>
   <component name="RunManager">
     <configuration name="agent" type="PythonConfigurationType" factoryName="Python" nameIsGenerated="true">
@@ -106,10 +101,10 @@
       <screen x="0" y="27" width="1920" height="1053" />
     </state>
     <state x="418" y="211" key="#com.intellij.execution.impl.EditConfigurationsDialog/0.27.1920.1053@0.27.1920.1053" timestamp="1589238996865" />
-    <state x="628" y="355" width="653" height="403" key="#com.intellij.fileTypes.FileTypeChooser" timestamp="1590271895350">
+    <state x="628" y="355" width="645" height="410" key="#com.intellij.fileTypes.FileTypeChooser" timestamp="1590436733439">
       <screen x="0" y="27" width="1920" height="1053" />
     </state>
-    <state x="628" y="355" width="653" height="403" key="#com.intellij.fileTypes.FileTypeChooser/0.27.1920.1053@0.27.1920.1053" timestamp="1590271895350" />
+    <state x="628" y="355" width="645" height="410" key="#com.intellij.fileTypes.FileTypeChooser/0.27.1920.1053@0.27.1920.1053" timestamp="1590436733439" />
     <state width="451" height="478" key="DebuggerActiveHint" timestamp="1589668605674">
       <screen x="0" y="27" width="1920" height="1053" />
     </state>
@@ -122,38 +117,42 @@
       <screen x="0" y="27" width="1920" height="1053" />
     </state>
     <state x="743" y="311" width="424" height="491" key="FileChooserDialogImpl/0.27.1920.1053@0.27.1920.1053" timestamp="1589308064754" />
-    <state width="1897" height="275" key="GridCell.Tab.0.bottom" timestamp="1590436000930">
+    <state width="1897" height="275" key="GridCell.Tab.0.bottom" timestamp="1591036547843">
       <screen x="0" y="27" width="1920" height="1053" />
     </state>
-    <state width="1897" height="275" key="GridCell.Tab.0.bottom/0.27.1920.1053@0.27.1920.1053" timestamp="1590436000930" />
-    <state width="1897" height="275" key="GridCell.Tab.0.center" timestamp="1590436000929">
+    <state width="1897" height="275" key="GridCell.Tab.0.bottom/0.27.1920.1053@0.27.1920.1053" timestamp="1591036547843" />
+    <state width="1897" height="275" key="GridCell.Tab.0.center" timestamp="1591036547842">
       <screen x="0" y="27" width="1920" height="1053" />
     </state>
-    <state width="1897" height="275" key="GridCell.Tab.0.center/0.27.1920.1053@0.27.1920.1053" timestamp="1590436000929" />
-    <state width="1897" height="275" key="GridCell.Tab.0.left" timestamp="1590436000928">
+    <state width="1897" height="275" key="GridCell.Tab.0.center/0.27.1920.1053@0.27.1920.1053" timestamp="1591036547842" />
+    <state width="1897" height="275" key="GridCell.Tab.0.left" timestamp="1591036547842">
       <screen x="0" y="27" width="1920" height="1053" />
     </state>
-    <state width="1897" height="275" key="GridCell.Tab.0.left/0.27.1920.1053@0.27.1920.1053" timestamp="1590436000928" />
-    <state width="1897" height="275" key="GridCell.Tab.0.right" timestamp="1590436000930">
+    <state width="1897" height="275" key="GridCell.Tab.0.left/0.27.1920.1053@0.27.1920.1053" timestamp="1591036547842" />
+    <state width="1897" height="275" key="GridCell.Tab.0.right" timestamp="1591036547843">
       <screen x="0" y="27" width="1920" height="1053" />
     </state>
-    <state width="1897" height="275" key="GridCell.Tab.0.right/0.27.1920.1053@0.27.1920.1053" timestamp="1590436000930" />
-    <state width="1897" height="340" key="GridCell.Tab.1.bottom" timestamp="1589675350597">
+    <state width="1897" height="275" key="GridCell.Tab.0.right/0.27.1920.1053@0.27.1920.1053" timestamp="1591036547843" />
+    <state width="1897" height="340" key="GridCell.Tab.1.bottom" timestamp="1590519083146">
       <screen x="0" y="27" width="1920" height="1053" />
     </state>
-    <state width="1897" height="340" key="GridCell.Tab.1.bottom/0.27.1920.1053@0.27.1920.1053" timestamp="1589675350597" />
-    <state width="1897" height="340" key="GridCell.Tab.1.center" timestamp="1589675350596">
+    <state width="1897" height="340" key="GridCell.Tab.1.bottom/0.27.1920.1053@0.27.1920.1053" timestamp="1590519083146" />
+    <state width="1897" height="340" key="GridCell.Tab.1.center" timestamp="1590519083145">
       <screen x="0" y="27" width="1920" height="1053" />
     </state>
-    <state width="1897" height="340" key="GridCell.Tab.1.center/0.27.1920.1053@0.27.1920.1053" timestamp="1589675350596" />
-    <state width="1897" height="340" key="GridCell.Tab.1.left" timestamp="1589675350596">
+    <state width="1897" height="340" key="GridCell.Tab.1.center/0.27.1920.1053@0.27.1920.1053" timestamp="1590519083145" />
+    <state width="1897" height="340" key="GridCell.Tab.1.left" timestamp="1590519083145">
       <screen x="0" y="27" width="1920" height="1053" />
     </state>
-    <state width="1897" height="340" key="GridCell.Tab.1.left/0.27.1920.1053@0.27.1920.1053" timestamp="1589675350596" />
-    <state width="1897" height="340" key="GridCell.Tab.1.right" timestamp="1589675350597">
+    <state width="1897" height="340" key="GridCell.Tab.1.left/0.27.1920.1053@0.27.1920.1053" timestamp="1590519083145" />
+    <state width="1897" height="340" key="GridCell.Tab.1.right" timestamp="1590519083145">
       <screen x="0" y="27" width="1920" height="1053" />
     </state>
-    <state width="1897" height="340" key="GridCell.Tab.1.right/0.27.1920.1053@0.27.1920.1053" timestamp="1589675350597" />
+    <state width="1897" height="340" key="GridCell.Tab.1.right/0.27.1920.1053@0.27.1920.1053" timestamp="1590519083145" />
+    <state x="449" y="188" width="1022" height="737" key="SettingsEditor" timestamp="1590436766049">
+      <screen x="0" y="27" width="1920" height="1053" />
+    </state>
+    <state x="449" y="188" width="1022" height="737" key="SettingsEditor/0.27.1920.1053@0.27.1920.1053" timestamp="1590436766049" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
@@ -161,14 +160,14 @@
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/policy.py</url>
           <line>129</line>
-          <option name="timeStamp" value="3" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/policy.py</url>
-          <line>118</line>
-          <option name="timeStamp" value="16" />
+          <option name="timeStamp" value="25" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>
+    <watches-manager>
+      <configuration name="PythonConfigurationType">
+        <watch expression="y" />
+      </configuration>
+    </watches-manager>
   </component>
 </project>
