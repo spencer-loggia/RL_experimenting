@@ -37,7 +37,7 @@ class Env:
         for i in range(self.width):
             if line[i] == 1:
                 num = np.random.uniform()
-                if num <= .5 and i+1 < self.width:
+                if num <= .3 and i+1 < self.width:
                     line[i+1] = 1
         line[0] = 1
         line[1] = 1

@@ -12,7 +12,7 @@ class Agent:
     def __init__(self, lr=.0001):
         self.interface = None
         self.model = ConvNetwork().float().cuda(0)
-        self.optimizer = torch.optim.SGD(self.model.parameters(), lr=lr)
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
         self.cur_frame = None
 
     def agent_game_loop(self):
@@ -86,20 +86,20 @@ class Agent:
             y = torch.ones(3).cuda(0)
             y[move] = 0
             y = y.reshape(1, -1)
-            loss = (1 / (np.log(state/9 - 9)*(logits.pow(2)).sum())) * nn.functional.binary_cross_entropy(logits, y)
-        else:  # state == 0
-            y = torch.ones(3).cuda(0)
-            y[move] = 0
-            y = y.reshape(1, -1)
-            if state > 95:
-                loss = .001*np.sqrt(state-95)*nn.functional.binary_cross_entropy(logits, y)*(logits.pow(2)).sum().pow(2)
-            else:
-                loss = .0001*nn.functional.binary_cross_entropy(logits, y)*(logits.pow(2)).sum()
+            loss = (.1 / (np.sqrt((state-90)/100000)*(logits.pow(2)).sum())) * nn.functional.binary_cross_entropy(logits, y)
+        # else:  # state == 0
+        #     y = torch.ones(3).cuda(0)
+        #     y[move] = 0
+        #     y = y.reshape(1, -1)
+        #     if state > 95:
+        #         loss = .001*np.sqrt(state-95)*nn.functional.binary_cross_entropy(logits, y)*(logits.pow(2)).sum().pow(2)
+        #     else:
+        #         loss = .0001*nn.functional.binary_cross_entropy(logits, y)*(logits.pow(2)).sum()
 
 
-        # DO NOT zero grad. Allow time propagation
-        loss.backward(retain_graph=True)
-        self.optimizer.step()
+            # DO NOT zero grad. Allow time propagation
+            loss.backward(retain_graph=True)
+            self.optimizer.step()
 
         if game_over:
             return state
@@ -151,10 +151,10 @@ class Agent:
 if __name__ == "__main__":
     torch.cuda.set_device(0)
     torch.autograd.set_detect_anomaly(True)
-    bob = Agent(lr=.001)
-    #bob.model = torch.load('./models/trained1000.pkl')
-    #bob.eval(10)
-    bob.train(NUM_GAMES=1001, max_drop=.5, max_explore=.6, mode='threshold', disp_iter=50, save_iter=500)
+    bob = Agent(lr=.0001)
+    bob.model = torch.load('./models/trained1000.pkl')
+    bob.eval(10)
+    #bob.train(NUM_GAMES=1000, max_drop=.5, max_explore=.2, mode='threshold', disp_iter=1000, save_iter=500)
     torch.cuda.device_count()
 
 
