@@ -22,9 +22,7 @@
     <list default="true" id="f11e1d12-4f2a-47d6-8fc4-d14a0ddda92e" name="Default Changelist" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/agent.py" beforeDir="false" afterPath="$PROJECT_DIR$/agent.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/scores.csv" beforeDir="false" afterPath="$PROJECT_DIR$/data/scores.csv" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/models/trained1000.pkl" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/models/trained500.pkl" beforeDir="false" afterPath="$PROJECT_DIR$/models/trained500.pkl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/policy.py" beforeDir="false" afterPath="$PROJECT_DIR$/policy.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

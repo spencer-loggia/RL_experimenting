@@ -14,6 +14,8 @@ class Agent:
         self.model = ConvNetwork().float().cuda(0)
         self.optimizer = torch.optim.SGD(self.model.parameters(), lr=lr)
         self.cur_frame = None
+        self.short_term_memory = list()
+        self.final_reward = int()
 
     def agent_game_loop(self):
         state = 0
@@ -43,39 +45,29 @@ class Agent:
             print("score on game " + str(i) + ": " + str(score))
 
     # initialize recursion
-    def recursive_train(self, prev, completion_ratio, count, max_drop, max_explore, mode):
-        count += 1
-        game_over = False
-        x = torch.from_numpy(self.cur_frame).cuda(0)
-        logits, hidden = self.model(x.float(), prev.float(), e=min(max_drop, 1-completion_ratio), training=True)
-        cpu_logits = logits.cpu()
-        # if count % 50 == 0:
-        #     print("move " + str(count) + " probs:  " + str(logits))
-        epsilon = np.random.random(1)
-        if epsilon <= (1-max_explore)*np.exp(.7*completion_ratio):
-            if mode == 'det':
-                move = torch.argmax(cpu_logits.data)
-            elif mode == 'stoch':
-                move = np.random.choice([0, 1, 2], p=cpu_logits.data.numpy().reshape(3))
-            elif mode == 'threshold':
-                if (max(cpu_logits.data)[0] < .5) and (min(cpu_logits.data)[0] > .2):
-                    move = np.random.choice([0, 1, 2], p=cpu_logits.data.numpy().reshape(3))
-                else:
-                    move = torch.argmax(cpu_logits)
-        else:
-            # explore
-            move = np.random.choice([0, 1, 2])
-        if move == 1:
-            if 1 == self.interface.E.move_left():
-                game_over = True
-        elif move == 2:
-            if 1 == self.interface.E.move_right():
-                game_over = True
-        # if move is 1 go straight
+    def meditate(self, gamma, completion_ratio, max_drop, max_explore, count=0):
+        '''
+        Preform batch graient decent on this play
+        :param prev:
+        :param completion_ratio:
+        :param max_drop:
+        :param max_explore:
+        :param count:
+        :return:
+        '''
+        num_states = len(self.short_term_memory)
+        shape = self.short_term_memory[0][0].shape
+        batch_x = torch.zeros(num_states, shape[0], shape[1]).cuda(0)
+        batch_y_hat = torch.zeros(num_states).cuda(0)
+        batch_y = torch.zeros(num_states).cuda(0)
 
-        state, self.cur_frame = self.interface.update_board()
-        if self.cur_frame is not None:
-            self.cur_frame = self.cur_frame[4:46, :]
+        for i in range(num_states):
+            batch_x[i] = self.short_term_memory[i][0]
+            batch_y[i] = (num_states - i) * torch.pow(gamma, i)
+        # TODO: add gradients, clean, up, training logit
+        batch_y_hat = self.model(batch_x, training=False)
+        loss = nn.functional.mse_loss(batch_y_hat, batch_y)
+
 
         # determine results of this move
         # Set Ys to penalize death, reward staying alive
@@ -86,7 +78,7 @@ class Agent:
             y = torch.ones(3).cuda(0)
             y[move] = 0
             y = y.reshape(1, -1)
-            #loss = (logits.pow(2)).sum() * nn.functional.binary_cross_entropy(logits, y)
+            loss = (logits.pow(2)).sum() * nn.functional.binary_cross_entropy(logits, y)
             print(cpu_logits)
             print(loss)
         else:  # state == 0
@@ -105,16 +97,18 @@ class Agent:
             #time.sleep(.01)
             return self.recursive_train(hidden, completion_ratio, count, max_drop, max_explore, mode)
 
-    def play_game(self, prev, count=0):
+
+    def play_game(self, prev, max_explore, completion_ratio, count=0, save_exp=True):
         game_over = False
         x = torch.from_numpy(self.cur_frame).cuda(0)
-        logits, hidden = self.model(x.float(), prev.float(), e=.1, training=True)
-        cpu_logits = logits.cpu()
-        print("move " + str(count) + " probs:  " + str(logits))
-        if (max(cpu_logits.data)[0] < .5) and (min(cpu_logits.data)[0] > .2):
-            move = np.random.choice([0, 1, 2], p=cpu_logits.data.numpy().reshape(3))
+        exp_reward = self.model(x.float(), prev.float(), training=False)
+
+        epsilon = np.random.random(1)
+        if epsilon <= (1 - max_explore) * np.exp(.7 * completion_ratio):
+            move = torch.argmax(exp_reward.data)
         else:
-            move = torch.argmax(cpu_logits)
+            # explore
+            move = np.random.choice([0, 1, 2])
         if move == 1:
             if 1 == self.interface.E.move_left():
                 game_over = True
@@ -122,20 +116,20 @@ class Agent:
             if 1 == self.interface.E.move_right():
                 game_over = True
         # if move is 1 go straight
+
+        if save_exp:
+            self.short_term_memory.append([x.float(), torch.max(exp_reward)])
+
         state, self.cur_frame = self.interface.update_board()
+        if state != 0:
+            game_over = True
+            self.final_reward = game_over
+            print("scored: " + str(state))
+            return
+
         if self.cur_frame is not None:
             self.cur_frame = self.cur_frame[4:46, :]
 
-        # determine results of this move
-        # Set Ys to penalize death, reward staying alive
-        # Also weight loss more when dying, since this is a rare important event
-        if state != 0 or game_over:
-            game_over = True
-        if game_over:
-            return state
-        else:
-            time.sleep(.01)
-            return self.play_game(hidden, count=count+1)
 
     def eval(self, num_games):
         for i in range(num_games):
