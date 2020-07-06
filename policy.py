@@ -69,7 +69,7 @@ class Network(nn.Module):
         y = self.relu(y).cuda(0)
 
         action_probs = self.soft(y).cuda(0)
-        return action_probs.cuda(0).clone()
+        return action_probs.clone().cuda(0)
 
 
 class ConvNetwork(nn.Module):
@@ -85,22 +85,19 @@ class ConvNetwork(nn.Module):
         self.mpl2 = nn.MaxPool2d(2).cuda(0)
         self.drop = nn.Dropout(.3).cuda(0)
 
-        conv_out_dim = 720
-
         # self.ln1 = nn.Linear(conv_out_dim, 2500).cuda(0)
         self.tanh = nn.Tanh().cuda(0)
         # self.ln2 = nn.Linear(2500, 1250).cuda(0)
 
-        self.fc1 = nn.Linear(600, 150).cuda(0)
+        self.fc1 = nn.Linear(600, 200).cuda(0)
         self.fc2 = nn.Linear(200, 50).cuda(0)
         self.fc3 = nn.Linear(50, 3).cuda(0)
-        self.soft = nn.Softmax().cuda(0)
 
-    def forward(self, x, hidden, e=.5, training=True):
-        torch.cuda.set_device(0)
+    def forward(self, x, e=.5, batch_size=1, training=True):
+        #torch.cuda.set_device(0)
         self.cuda(0)
 
-        x = x.view(-1, 1, x.shape[0], x.shape[1]).float().cuda(0)
+        x = x.view(batch_size, 1, x.shape[-2], x.shape[-1]).float().cuda(0)
 
         x = self.cn1(x).cuda(0)
         x = self.mpl2(x).cuda(0)
@@ -114,23 +111,17 @@ class ConvNetwork(nn.Module):
         x = self.mpl2(x).cuda(0)
         x = self.lrelu(x).cuda(0)
 
-        x = x.reshape(1, -1).cuda(0)
+        x = x.reshape(batch_size, -1).cuda(0)
 
         x = self.fc1(x).cuda(0)
         x = self.lrelu(x).cuda(0)
-        x = nn.functional.dropout(x, p=e, training=training).cuda(0)
 
-        hidden = hidden.data.reshape(1, -1).cuda(0)
-        hidden = torch.cat((x, hidden), 1).cuda(0)
-
-        x = self.fc2(hidden).cuda(0)
+        x = self.fc2(x).cuda(0)
         y = self.lrelu(x).cuda(0)
-        y = next_hidden = nn.functional.dropout(y, p=e, training=training).cuda(0)
 
         y = self.fc3(y).cuda(0)
-        y = self.lrelu(y).cuda(0)
 
-        action_probs = self.soft(y).cuda(0)
-        return action_probs.cuda(0).clone(), next_hidden
+        reward = y
+        return reward.clone().cuda(0)
 
 
