@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 
 class Env:
 
-    def __init__(self, diff=.3, board_width=50, board_height=100):
+    def __init__(self, diff=.6, board_width=50, board_height=100):
         """
         each square has a 1/30 * diff chance of becoming a barrier source
         once a barrier source is chosen it has a 1/2 chance of extending in both directions, until
@@ -37,7 +37,7 @@ class Env:
         for i in range(self.width):
             if line[i] == 1:
                 num = np.random.uniform()
-                if num <= .3 and i+1 < self.width:
+                if num <= .5 and i+1 < self.width:
                     line[i+1] = 1
         line[0] = 1
         line[1] = 1

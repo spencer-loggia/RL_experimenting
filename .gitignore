@@ -2,3 +2,5 @@
 *.csv
 *.xml
 *.idea
+*pycharm*
+*pycache*
