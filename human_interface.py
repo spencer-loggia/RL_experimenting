@@ -77,12 +77,14 @@ class Interface:
     def game_loop(self):
         state = 0
         while state == 0:
-            time.sleep(.05)
+            time.sleep(.075)
             state, cur_frame = self.update_board()
         return state
-#
-# test = Interface()
-# test.game_loop()
+
+
+if __name__ == "__main__":
+    test = Interface()
+    print("you scored:" + str(test.game_loop()))
 
 
 
