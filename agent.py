@@ -1,88 +1,143 @@
-import torch
-from torch import nn
 import numpy as np
-from policy import ConvNetwork
 import human_interface
-import time
 import sys
+import shutil
+from PIL import Image
+import driverlessai
+import os
+
+
+def export_dataset(raw_data: (np.ndarray, np.ndarray, np.ndarray), batch_num: int) -> str:
+    X = raw_data[0]
+    moves = raw_data[1]
+    Y = raw_data[2]
+    os.mkdir('data/batch_' + str(batch_num))
+    csv_str = 'StatePath,Action,ObservedFutureReward'
+    file = open('data/batch_' + str(batch_num) + '/labels.csv', 'w')
+    for i in range(len(Y)):
+        img = Image.fromarray(X[i])
+        filename = 'sample_' + str(i) + '.jpeg'
+        img.save('data/batch_' + str(batch_num) + '/' + filename)
+        csv_str = csv_str + '\n' + filename + ',' + str(moves[i]) + ',' + str(Y[i])
+    file.write(csv_str)
+    file.close()
+    shutil.make_archive('data/sample_batch_' + str(batch_num) + '.zip', 'zip', 'data/batch_' + str(batch_num))
+    os.rmdir('data/sample_batch_' + str(batch_num))
+    return 'data/sample_batch_' + str(batch_num) + '.zip'
 
 
 class Agent:
-    def __init__(self, lr=.0001):
+    def __init__(self, username, password, url):
         self.interface = None
-        self.model = ConvNetwork().float().cuda(0)
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
+        self.dai = driverlessai.Client(address=url, username=username, password=password)
+        self.experiment = None
         self.cur_frame = None
         self.short_term_memory = list()
         self.final_reward = int()
 
-    def train(self, NUM_GAMES, max_drop=.5, max_explore=.4, disp_iter=10, save_iter=500):
-        if max_drop > 1 or max_explore > 1:
+    def train(self, num_batches=100, batch_size=100, game_sample=100, eplison=.4, gamma=.9, disp_iter=10, save_iter=500):
+        """
+        Main training function
+        :param num_batches: number of training iterations, each with number of games equal to batch size.
+        :param batch_size: the number of games before model is updated
+        :param game_sample: number of time steps to train on from each game
+        :param eplison: the starting probability that a random action is taken (epsilon-greedy). Decays
+        exponentially with number of games
+        :param gamma: discounting factor, the base of exponential decay of future event rewards
+        :param disp_iter: how frequently (in games) a visualization of agent's game play should be displayed
+        (slows training)
+        :return: None
+        """
+        if eplison > 1:
             print('Invalid Hyperparameter. Learning Aborted', sys.stderr)
             return
         data_file = open('./data/scores.csv', 'w')
         data_file.write("iter,score\n")
-        self.model = self.model.float()
-        for i in range(NUM_GAMES):
-            torch.cuda.empty_cache()
-            self.short_term_memory = []
-            self.final_reward = 0
-            if (i + 1) % save_iter == 0:
-                file = open('./models/trained' + str(i + 1) + '.pkl', 'wb')
-                torch.save(self.model, file)
-                file.close()
-            if i % disp_iter == 0:
-                self.interface = human_interface.Interface(human_player=False)
-            else:
-                self.interface = human_interface.Interface(human_disp=False, human_player=False)
-            self.cur_frame = np.array(self.interface.E.board_state)[4:46, :]
-            self.optimizer.zero_grad()
-            score = self.play_game(max_explore, i / NUM_GAMES, save_exp=True)
-            self.meditate(.9)
-            data_file.write(str(i) + ',' + str(score) + '\n')
-            print("score on game " + str(i) + ": " + str(score))
 
-    # initialize recursion
-    def meditate(self, gamma):
+        # main training_loop
+        for i in range(num_batches):
+            self.short_term_memory = []
+            for j in range(batch_size):
+                self.final_reward = 0
+                if i % disp_iter == 0:
+                    self.interface = human_interface.Interface(human_player=False)
+                else:
+                    self.interface = human_interface.Interface(human_disp=False, human_player=False)
+                self.cur_frame = np.array(self.interface.E.board_state)[4:46, :]
+                score = self.play_game(eplison, (i * j) / (num_batches * batch_size), save_exp=True)
+            train_data = self.prepare_dataset(gamma, game_sample)
+            zip_path = export_dataset(train_data, i)
+            dai_data = self.dai.datasets.create(data=zip_path, data_source='upload', name='RL_frame_' + str(i))
+            if self.experiment is None:
+                self.experiment = self.dai.experiments.create(name='RL_test',
+                                                              test_dataset=dai_data,
+                                                              task='regression',
+                                                              target_column='ObservedFutureReward',
+                                                              accuracy=5,
+                                                              time=3,
+                                                              interpretability=5)
+            else:
+                self.experiment.retrain(use_smart_checkpoint=True,
+                                        test_dataset=dai_data,
+                                        task='regression',
+                                        target_column='ObservedFutureReward',
+                                        accuracy=5,
+                                        time=3,
+                                        interpretability=5)
+
+
+    def prepare_dataset(self, gamma, sample_size)-> (np.ndarray, np.ndarray, np.ndarray):
         DEATH_COST = -100
         STAY_ALIVE_REWARD = 1
-        num_states = len(self.short_term_memory)
-        if num_states > 3250:
-            # stop-gap to prevent memory overflow, play basically optimal at this point anyway
-            return
-        shape = self.short_term_memory[0][0].shape
-        batch_x = torch.zeros(num_states, shape[0], shape[1]).cuda(0)
-        batch_y = torch.zeros(num_states).cuda(0)
-        move_indices = torch.zeros(num_states).long().cuda(0)
 
-        final_move = num_states - 1
-        batch_y[final_move] = DEATH_COST  # death penalized with -100
-        batch_x[final_move] = self.short_term_memory[final_move][0]
-        move_indices[final_move] = self.short_term_memory[final_move][1].cuda(0)
-        for i in range(num_states - 2, -1, -1):
-            batch_x[i] = self.short_term_memory[i][0]
-            move_indices[i] = self.short_term_memory[i][1].cuda(0)
-            batch_y[i] = STAY_ALIVE_REWARD + (gamma * batch_y[i + 1])
+        num_game_in_batch = len(self.short_term_memory)
+        frame_dims = self.short_term_memory[0][0].shape
 
-        # TODO: add gradients, clean, up, training logit
-        batch_y_hat = self.model(batch_x, batch_size=num_states, training=False)
-        self.optimizer.zero_grad()
-        move_indices = move_indices.reshape([num_states, 1])
-        batch_y_hat = batch_y_hat.gather(1, move_indices).reshape([-1])  # select moves that were made
-        loss = nn.functional.mse_loss(batch_y_hat, batch_y)
-        try:
-            loss.backward()
-            self.optimizer.step()
-        except RuntimeError:
-            pass
+        # would use tensors but have to convert anyway eventually, no point in importing torch
+        batch_x = np.zeros((num_game_in_batch, sample_size, frame_dims[0], frame_dims[1]))
+        moves = np.zeros((num_game_in_batch, sample_size))
+        batch_y = np.zeros((num_game_in_batch, sample_size))
+
+        for j in range(num_game_in_batch):
+            game_data = self.short_term_memory[j]
+            # create state, action, reward sample indexes of desired size
+            num_states = len(game_data)
+            sample_indexes = np.random.choice(num_states, sample_size)
+
+            move_indices = np.zeros(num_states)
+
+            # compute q function on each time step
+            final_move = num_states - 1
+            batch_y[final_move] = DEATH_COST  # death penalized with -100
+            batch_x[final_move] = game_data[final_move][0]
+            move_indices[final_move] = game_data[final_move][1]
+
+            temp_x = np.zeros(num_states, frame_dims[0], frame_dims[1])
+            temp_y = np.zeros(num_states)
+            # reverse through state action pairs computing true future reward recursively
+            for i in range(num_states - 2, -1, -1):
+                temp_x[i] = self.short_term_memory[i][0]
+                move_indices[i] = game_data[i][1]
+                temp_y[j][i] = STAY_ALIVE_REWARD + (gamma * batch_y[i + 1])
+
+            # sample
+            batch_x[j] = temp_x[sample_indexes]
+            moves[j] = move_indices[sample_indexes]
+            batch_y[j] = temp_y[sample_indexes]
+
+        # reduce dimensionality to fit dai label conventions
+        batch_x = batch_x.reshape([num_game_in_batch * sample_size, frame_dims[0], frame_dims[1]])
+        moves = moves.reshape([num_game_in_batch * sample_size])
+        batch_y = batch_y.reshape([num_game_in_batch * sample_size])
+        return batch_x, moves, batch_y
 
     def play_game(self, max_explore, completion_ratio, save_exp=True):
+        # TODO: Add change prediction to dai, need to predict for each action, choose best.
         game_over = False
         state = 0
         count = 0
         while not game_over:
-            time.sleep(.025)
-            x = torch.from_numpy(self.cur_frame).cuda(0)
+            x = self.cur_frame
             exp_reward = self.model(x.float(), training=False)
 
             if count % 10 == 0:
@@ -90,7 +145,7 @@ class Agent:
 
             epsilon = np.random.random(1)
             if epsilon <= (1 - max_explore) * np.exp(.7 * completion_ratio):
-                move = torch.argmax(exp_reward.data)
+                move = np.argmax(exp_reward.data)
             else:
                 # explore
                 move = np.random.choice([0, 1, 2])
@@ -103,7 +158,7 @@ class Agent:
             # if move is 1 go straight
 
             if save_exp:
-                self.short_term_memory.append([x.float(), torch.tensor(int(move)).long()])
+                self.short_term_memory.append([x.float(), int(move)])
 
             state, self.cur_frame = self.interface.update_board()
             if self.cur_frame is not None:
@@ -126,10 +181,5 @@ class Agent:
 
 
 if __name__ == "__main__":
-    # torch.cuda.set_device(0)
-    torch.autograd.set_detect_anomaly(True)
-    bob = Agent(lr=0)
-    bob.model = torch.load('./models/super_human_tuned_61k_exp.pkl')
-    # bob.eval(10)
-    bob.train(NUM_GAMES=1, max_drop=0, max_explore=0, disp_iter=1, save_iter=100)
-    # torch.cuda.device_count()
+    pass
+    #TODO: update main

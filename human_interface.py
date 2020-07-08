@@ -6,6 +6,12 @@ from PIL import Image, ImageTk
 import scipy.ndimage
 import time
 
+
+def image_from_np(arr: np.ndarray) -> ImageTk.PhotoImage:
+    np_img = scipy.ndimage.zoom(arr, 8, order=0)
+    img = ImageTk.PhotoImage(image=Image.fromarray(np_img), master=self.root)
+    return img
+
 class Interface:
     def __init__(self, human_disp=True, human_player=True, FPS=10):
         self.E = eviroment.Env()
@@ -17,9 +23,8 @@ class Interface:
         if human_disp:
             self.root = Tk()
             board_img = np.array(self.raw_state) * int(255 / 2)
-            np_img = scipy.ndimage.zoom(board_img, 8, order=0)
-            img = ImageTk.PhotoImage(image=Image.fromarray(np_img), master=self.root)
-            self.canvas = Canvas(self.root, width=np_img.shape[1], height=np_img.shape[0])
+            img = image_from_np(board_img)
+            self.canvas = Canvas(self.root, width=board_img.shape[1], height=board_img.shape[0])
             self.canvas.create_image(1, 2, anchor="nw", image=img)
             self.canvas.pack()
             self.canvas.update_idletasks()
@@ -29,6 +34,7 @@ class Interface:
             self.root.bind('<Left>', self.leftKey)
             self.root.bind('<Right>', self.rightKey)
             self.frame.pack()
+
 
     def leftKey(self, event):
         if self.human_player:
