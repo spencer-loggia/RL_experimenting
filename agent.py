@@ -25,7 +25,6 @@ def export_dataset(raw_data: (np.ndarray, np.ndarray, np.ndarray), batch_num: in
     os.rmdir('data/sample_batch_' + str(batch_num))
     return 'data/sample_batch_' + str(batch_num) + '.zip'
 
-
 class Agent:
     def __init__(self, username, password, url):
         self.interface = None
@@ -86,6 +85,9 @@ class Agent:
                                         interpretability=5)
 
 
+    def create_scoring_pipeline(self):
+        self.experiment
+
     def prepare_dataset(self, gamma, sample_size)-> (np.ndarray, np.ndarray, np.ndarray):
         DEATH_COST = -100
         STAY_ALIVE_REWARD = 1
@@ -145,6 +147,7 @@ class Agent:
 
             epsilon = np.random.random(1)
             if epsilon <= (1 - max_explore) * np.exp(.7 * completion_ratio):
+                # predict for all possible moves
                 move = np.argmax(exp_reward.data)
             else:
                 # explore
