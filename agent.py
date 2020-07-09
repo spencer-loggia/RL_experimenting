@@ -2,39 +2,45 @@ import numpy as np
 import human_interface
 import sys
 import shutil
+import h2oai_client
 from PIL import Image
-import driverlessai
+
 import os
 
 
-def export_dataset(raw_data: (np.ndarray, np.ndarray, np.ndarray), batch_num: int) -> str:
+def export_dataset(raw_data: (np.ndarray, np.ndarray, np.ndarray), batch_num: int, dai_data_dir: str) -> str:
     X = raw_data[0]
     moves = raw_data[1]
     Y = raw_data[2]
-    os.mkdir('data/batch_' + str(batch_num))
+    try:
+        os.mkdir(dai_data_dir + '/batch_' + str(batch_num))
+    except FileExistsError:
+        pass
     csv_str = 'StatePath,Action,ObservedFutureReward'
-    file = open('data/batch_' + str(batch_num) + '/labels.csv', 'w')
+    file = open(dai_data_dir + 'batch_' + str(batch_num) + '/labels.csv', 'w')
     for i in range(len(Y)):
-        img = Image.fromarray(X[i])
+        img = Image.fromarray(X[i], mode='L')
         filename = 'sample_' + str(i) + '.jpeg'
-        img.save('data/batch_' + str(batch_num) + '/' + filename)
+        img.save(dai_data_dir + '/batch_' + str(batch_num) + '/' + filename, format='JPEG')
         csv_str = csv_str + '\n' + filename + ',' + str(moves[i]) + ',' + str(Y[i])
     file.write(csv_str)
     file.close()
-    shutil.make_archive('data/sample_batch_' + str(batch_num) + '.zip', 'zip', 'data/batch_' + str(batch_num))
-    os.rmdir('data/sample_batch_' + str(batch_num))
-    return 'data/sample_batch_' + str(batch_num) + '.zip'
+    shutil.make_archive(dai_data_dir + '/sample_batch_' + str(batch_num), 'zip', dai_data_dir + '/batch_' + str(batch_num))
+    #shutil.rmtree(dai_data_dir + '/batch_' + str(batch_num))
+    return dai_data_dir + '/sample_batch_' + str(batch_num) + '.zip'
+
 
 class Agent:
     def __init__(self, username, password, url):
         self.interface = None
-        self.dai = driverlessai.Client(address=url, username=username, password=password)
+        self.dai = h2oai_client.Client(address=url, username=username, password=password)
         self.experiment = None
         self.cur_frame = None
         self.short_term_memory = list()
         self.final_reward = int()
 
-    def train(self, num_batches=100, batch_size=100, game_sample=100, eplison=.4, gamma=.9, disp_iter=10, save_iter=500):
+    def train(self, num_batches=100, batch_size=100, game_sample=100, eplison=.4, gamma=.9, disp_iter=10,
+              save_iter=500):
         """
         Main training function
         :param num_batches: number of training iterations, each with number of games equal to batch size.
@@ -66,15 +72,21 @@ class Agent:
                 score = self.play_game(eplison, (i * j) / (num_batches * batch_size), save_exp=True)
             train_data = self.prepare_dataset(gamma, game_sample)
             zip_path = export_dataset(train_data, i)
-            dai_data = self.dai.datasets.create(data=zip_path, data_source='upload', name='RL_frame_' + str(i))
+            dai_data = self.dai.create_dataset_from_(zip_path)
+            params = h2oai_client.messages.ModelParameters(dataset=dai_data, resumed_model=False,
+                                                           target_col='ObservedFutureReward', weight_col=None,
+                                                           fold_col=None, orig_time_col=None, time_col=None,
+                                                           is_classification=False, cols_to_drop=None, validset=None,
+                                                           enable_gpus=True, seed=12345, accuracy=5, time=2,
+                                                           interpretability=5, score_f_name='RMSE',
+                                                           time_groups_columns=None,
+                                                           unavailable_columns_at_prediction_time=None,
+                                                           time_period_in_seconds=None, num_prediction_periods=None,
+                                                           num_gap_periods=None, is_timeseries=False,
+                                                           cols_imputation=None, config_overrides=None,
+                                                           custom_features=None, is_image=True)
             if self.experiment is None:
-                self.experiment = self.dai.experiments.create(name='RL_test',
-                                                              test_dataset=dai_data,
-                                                              task='regression',
-                                                              target_column='ObservedFutureReward',
-                                                              accuracy=5,
-                                                              time=3,
-                                                              interpretability=5)
+                self.experiment = self.dai.start_experiment(req=params)
             else:
                 self.experiment.retrain(use_smart_checkpoint=True,
                                         test_dataset=dai_data,
@@ -84,11 +96,10 @@ class Agent:
                                         time=3,
                                         interpretability=5)
 
-
     def create_scoring_pipeline(self):
         self.experiment
 
-    def prepare_dataset(self, gamma, sample_size)-> (np.ndarray, np.ndarray, np.ndarray):
+    def prepare_dataset(self, gamma, sample_size) -> (np.ndarray, np.ndarray, np.ndarray):
         DEATH_COST = -100
         STAY_ALIVE_REWARD = 1
 
@@ -184,5 +195,9 @@ class Agent:
 
 
 if __name__ == "__main__":
+    x = np.random.rand(100, 40, 50)
+    m = np.zeros(100)
+    y = np.zeros(100)
+    path = export_dataset((x, m, y), 4242, './')
     pass
-    #TODO: update main
+    # TODO: update main
