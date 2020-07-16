@@ -7,10 +7,7 @@ import scipy.ndimage
 import time
 
 
-def image_from_np(arr: np.ndarray) -> ImageTk.PhotoImage:
-    np_img = scipy.ndimage.zoom(arr, 8, order=0)
-    img = ImageTk.PhotoImage(image=Image.fromarray(np_img), master=self.root)
-    return img
+
 
 class Interface:
     def __init__(self, human_disp=True, human_player=True, FPS=10):
@@ -23,7 +20,7 @@ class Interface:
         if human_disp:
             self.root = Tk()
             board_img = np.array(self.raw_state) * int(255 / 2)
-            img = image_from_np(board_img)
+            img = self.image_from_np(board_img)
             self.canvas = Canvas(self.root, width=board_img.shape[1], height=board_img.shape[0])
             self.canvas.create_image(1, 2, anchor="nw", image=img)
             self.canvas.pack()
@@ -35,6 +32,10 @@ class Interface:
             self.root.bind('<Right>', self.rightKey)
             self.frame.pack()
 
+    def image_from_np(self, arr: np.ndarray) -> ImageTk.PhotoImage:
+        np_img = scipy.ndimage.zoom(arr, 8, order=0)
+        img = ImageTk.PhotoImage(image=Image.fromarray(np_img), master=self.root)
+        return img
 
     def leftKey(self, event):
         if self.human_player:
