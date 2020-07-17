@@ -1,8 +1,6 @@
 import numpy as np
 from tkinter import Tk
 
-import matplotlib.pyplot as plt
-
 class Env:
 
     def __init__(self, diff=.6, board_width=50, board_height=100):

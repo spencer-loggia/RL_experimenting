@@ -19,7 +19,7 @@ class Interface:
         self.root = None
         if human_disp:
             self.root = Tk()
-            board_img = np.array(self.raw_state) * int(255 / 2)
+            board_img = np.array(self.raw_state)
             img = self.image_from_np(board_img)
             self.canvas = Canvas(self.root, width=board_img.shape[1], height=board_img.shape[0])
             self.canvas.create_image(1, 2, anchor="nw", image=img)
@@ -51,7 +51,7 @@ class Interface:
 
     def display_frame(self, toContinue=True):
         if toContinue:
-            board_img = np.array(self.raw_state) * int(255 / 2)
+            board_img = np.array(self.raw_state)
             if self.human_disp:
                 try:
                     self.canvas.delete('all')

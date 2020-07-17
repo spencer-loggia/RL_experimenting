@@ -6,7 +6,7 @@ import shutil
 import h2oai_client
 from scipy import ndimage
 from PIL import Image
-
+import math
 import os
 
 
@@ -23,7 +23,7 @@ def export_image_dataset(raw_data: (np.ndarray, np.ndarray, np.ndarray), batch_n
         csv_str = csv_str + ',ObservedFutureReward'
     file = open(dai_data_dir + '/batch_' + str(batch_num) + '/labels.csv', 'w')
     for i in range(len(moves)):
-        img = Image.fromarray(X[i].astype('uint8'), mode='L')
+        img = Image.fromarray((X[i]*math.floor(255/2)).astype('uint8'), mode='L')
         im_dat = np.array(img)
         filename = 'sample_' + str(i) + '.png'
         img.save(dai_data_dir + '/batch_' + str(batch_num) + '/' + filename, format='PNG')
@@ -35,7 +35,7 @@ def export_image_dataset(raw_data: (np.ndarray, np.ndarray, np.ndarray), batch_n
     shutil.make_archive(dai_data_dir + '/sample_batch_' + str(batch_num), 'zip',
                         dai_data_dir + '/batch_' + str(batch_num))
     # shutil.rmtree(dai_data_dir + '/batch_' + str(batch_num))
-    return '/data/batch_' + str(batch_num) + '.zip'
+    return '/data/sample_batch_' + str(batch_num) + '.zip'
 
 
 def export_image_pred_dataset(raw_data: (np.ndarray, np.ndarray), batch_num: int, dai_data_dir: str) -> str:
@@ -61,7 +61,7 @@ def export_image_pred_dataset(raw_data: (np.ndarray, np.ndarray), batch_num: int
     shutil.make_archive(dai_data_dir + '/sample_batch_' + str(batch_num), 'zip',
                         dai_data_dir + '/batch_' + str(batch_num))
     # shutil.rmtree(dai_data_dir + '/batch_' + str(batch_num))
-    return '/data/sample-batch' + str(batch_num) + '.zip'
+    return '/data/sample_batch' + str(batch_num) + '.zip'
 
 
 def export_csv_dataset(raw_data: np.ndarray, batch_num: int, dai_data_dir: str) -> str:
@@ -82,8 +82,8 @@ class Agent:
         self.cur_frame = None
         self.short_term_memory = list()
 
-    def train(self, num_batches=4, batch_size=500, game_sample=10, epsilon=.5, gamma=.9, disp_iter=10,
-              dai_data_dir='/home/sl/Projects/dai_rel_1.9_177/data'):
+    def train(self, num_batches=4, batch_size=10, game_sample=10, epsilon=.5, gamma=.9, disp_iter=10,
+              dai_data_dir='/Users/sloggia/dai_rel_1.9_dev190/data/'):
         """
         Main training function
         :param num_batches: number of training iterations, each with number of games equal to batch size.
@@ -100,8 +100,6 @@ class Agent:
         if epsilon > 1:
             print('Invalid Hyperparameter. Learning Aborted', sys.stderr)
             return
-        data_file = open('./data/scores.csv', 'w')
-        data_file.write("iter,score\n")
 
         # main training_loop
         for i in range(num_batches):
@@ -111,26 +109,26 @@ class Agent:
             zip_path = export_image_dataset(train_data, i, dai_data_dir)
             dai_data = self.dai.create_dataset_sync(zip_path)
             print('begining model update....')
-            if self.experiment is None:
-                self.experiment = self.dai.start_experiment_sync(dataset_key=dai_data.key,
-                                                                 is_classification=False,
-                                                                 target_col='ObservedFutureReward',
-                                                                 is_image=True,
-                                                                 accuracy=1,
-                                                                 time=1,
-                                                                 interpretability=8,
-                                                                 scorer='RMSE')
-
-            else:
-                self.experiment = self.dai.start_experiment_sync(resumed_model_key=self.experiment.key,
-                                                                 dataset_key=dai_data.key,
-                                                                 is_classification=False,
-                                                                 target_col='ObservedFutureReward',
-                                                                 is_image=True,
-                                                                 accuracy=1,
-                                                                 time=1,
-                                                                 interpretability=8,
-                                                                 scorer='RMSE')
+            # if self.experiment is None:
+            #     self.experiment = self.dai.start_experiment_sync(dataset_key=dai_data.key,
+            #                                                      is_classification=False,
+            #                                                      target_col='ObservedFutureReward',
+            #                                                      is_image=True,
+            #                                                      accuracy=1,
+            #                                                      time=1,
+            #                                                      interpretability=8,
+            #                                                      scorer='RMSE')
+            #
+            # else:
+            #     self.experiment = self.dai.start_experiment_sync(resumed_model_key=self.experiment.key,
+            #                                                      dataset_key=dai_data.key,
+            #                                                      is_classification=False,
+            #                                                      target_col='ObservedFutureReward',
+            #                                                      is_image=True,
+            #                                                      accuracy=1,
+            #                                                      time=1,
+            #                                                      interpretability=8,
+            #                                                      scorer='RMSE')
 
     def prepare_dataset(self, gamma, sample_size, flatten=False) -> (np.ndarray, np.ndarray, np.ndarray):
         DEATH_COST = -100
@@ -200,7 +198,7 @@ class Agent:
 
         file = open(dai_data_dir + 'pred_batch_' + str(batch_num) + '/labels.csv', 'w')
         for i in range(len(X)):
-            img = Image.fromarray((X[i]*(255/2)).astype('uint8'), mode='L')
+            img = Image.fromarray((X[i]).astype('uint8'), mode='L')
             filename = 'sample_' + str(i) + '.png'
             img.save(dai_data_dir + '/pred_batch_' + str(batch_num) + '/' + filename, format='PNG')
             for j in action_set:
