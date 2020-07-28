@@ -81,7 +81,6 @@ class Agent:
         state = 0
         count = 0
         while not game_over:
-            time.sleep(.025)
             x = torch.from_numpy(self.cur_frame).cuda(0)
             exp_reward = self.model(x.float(), training=False)
 
@@ -115,7 +114,8 @@ class Agent:
         self.final_reward = state
         print("scored: " + str(state))
         return state
-
+    
+    # TODO: impliment working play back / evaluation (below is non functional hold over)
     def eval(self, num_games):
         for i in range(num_games):
             self.interface = human_interface.Interface(human_player=False)
