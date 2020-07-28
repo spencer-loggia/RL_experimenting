@@ -8,7 +8,7 @@ import sys
 
 
 class Agent:
-    def __init__(self, lr=.0001):
+    def __init__(self, lr=.001):
         self.interface = None
         self.model = ConvNetwork().float().cuda(0)
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
@@ -16,7 +16,7 @@ class Agent:
         self.short_term_memory = list()
         self.final_reward = int()
 
-    def train(self, NUM_GAMES, max_drop=.5, max_explore=.4, disp_iter=10, save_iter=500):
+    def train(self, NUM_GAMES, max_drop=.5, max_explore=.85, gamma=.9, disp_iter=100, save_iter=1000):
         if max_drop > 1 or max_explore > 1:
             print('Invalid Hyperparameter. Learning Aborted', sys.stderr)
             return
@@ -38,7 +38,7 @@ class Agent:
             self.cur_frame = np.array(self.interface.E.board_state)[4:46, :]
             self.optimizer.zero_grad()
             score = self.play_game(max_explore, i / NUM_GAMES, save_exp=True)
-            self.meditate(.9)
+            self.meditate(gamma)
             data_file.write(str(i) + ',' + str(score) + '\n')
             print("score on game " + str(i) + ": " + str(score))
 
@@ -49,6 +49,7 @@ class Agent:
         num_states = len(self.short_term_memory)
         if num_states > 3250:
             # stop-gap to prevent memory overflow, play basically optimal at this point anyway
+            # better way to do this would be to base cut off on available system mem
             return
         shape = self.short_term_memory[0][0].shape
         batch_x = torch.zeros(num_states, shape[0], shape[1]).cuda(0)
@@ -82,8 +83,8 @@ class Agent:
         count = 0
         while not game_over:
             x = torch.from_numpy(self.cur_frame).cuda(0)
-            exp_reward = self.model(x.float(), training=False)
-
+            exp_reward = self.model(x.float(), training=False) # setting training to false to avoid use of dropout, which I found reduced 
+                                                               # training speed w/o significant preformance benefit in this case
             if count % 10 == 0:
                 print(exp_reward)
 
@@ -128,8 +129,8 @@ class Agent:
 if __name__ == "__main__":
     # torch.cuda.set_device(0)
     torch.autograd.set_detect_anomaly(True)
-    bob = Agent(lr=0)
-    bob.model = torch.load('./models/super_human_tuned_61k_exp.pkl')
+    bob = Agent(lr=.001)
+    # bob.model = torch.load('./models/super_human_tuned_61k_exp.pkl')
     # bob.eval(10)
-    bob.train(NUM_GAMES=1, max_drop=0, max_explore=0, disp_iter=1, save_iter=100)
+    bob.train(NUM_GAMES=10000)
     # torch.cuda.device_count()
