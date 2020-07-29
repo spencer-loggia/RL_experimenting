@@ -117,6 +117,7 @@ class Agent:
         return state
     
     # TODO: impliment working play back / evaluation (below is non functional hold over)
+    # Currently can see agent preform once trained by setting lr=0 and display_iter=1 and max_explore=0
     def eval(self, num_games):
         for i in range(num_games):
             self.interface = human_interface.Interface(human_player=False)
@@ -130,7 +131,7 @@ if __name__ == "__main__":
     # torch.cuda.set_device(0)
     torch.autograd.set_detect_anomaly(True)
     bob = Agent(lr=.001)
-    # bob.model = torch.load('./models/super_human_tuned_61k_exp.pkl')
+    # bob.model = torch.load('./models/super_human_tuned_61k_exp.pkl') # load saved policy to see trained agent play
     # bob.eval(10)
     bob.train(NUM_GAMES=10000)
     # torch.cuda.device_count()
