@@ -1,4 +1,5 @@
 import tkinter as tk
+from tkinter import TclError
 import eviroment
 import numpy as np
 from tkinter import Tk, Canvas, Frame, Text, INSERT
@@ -7,8 +8,12 @@ import scipy.ndimage
 import time
 
 class Interface:
-    def __init__(self, human_disp=True, human_player=True, FPS=10):
-        self.E = eviroment.Env()
+    def __init__(self, human_disp=True, human_player=True, game_mode='runner', FPS=10):
+        self.game_mode = game_mode
+        if game_mode == 'runner':
+            self.E = eviroment.RunnerEnv()
+        elif game_mode == 'snake':
+            self.E = eviroment.SnakeEnv()
         self.raw_state = self.E.board_state
         self.human_disp = human_disp
         self.human_player = human_player
@@ -28,18 +33,32 @@ class Interface:
             self.frame = Frame(self.root, width=100, height=100)
             self.root.bind('<Left>', self.leftKey)
             self.root.bind('<Right>', self.rightKey)
+            self.root.bind('<Up>', self.upKey)
+            self.root.bind('<Down>', self.downKey)
             self.frame.pack()
 
     def leftKey(self, event):
         if self.human_player:
-            if self.E.move_left() == 1 and self.root is not None:
+            if self.E.move('l') == 1 and self.root is not None:
                 #self.canvas.destroy()
                 self.root.destroy()
 
     def rightKey(self, event):
         if self.human_player:
-            if self.E.move_right() == 1 and self.root is not None:
+            if self.E.move('r') == 1 and self.root is not None:
                 #self.canvas.destroy()
+                self.root.destroy()
+
+    def upKey(self, event):
+        if self.human_player:
+            if self.E.move('u') == 1 and self.root is not None:
+                # self.canvas.destroy()
+                self.root.destroy()
+
+    def downKey(self, event):
+        if self.human_player:
+            if self.E.move('d') == 1 and self.root is not None:
+                # self.canvas.destroy()
                 self.root.destroy()
 
     def display_frame(self, toContinue=True):
@@ -63,27 +82,33 @@ class Interface:
         return None
 
     def update_board(self):
-        win_state = self.E.step(self.command)
+        win_state = self.E.step()
         self.raw_state = self.E.board_state
-        if win_state == 0:
+        if win_state <= 0:
             cur_frame = self.display_frame()
-            return 0, cur_frame
+            return win_state, cur_frame
         else:
             cur_frame = None
             if self.root is not None:
-                self.root.destroy()
-            return self.E.line_count, cur_frame
+                try:
+                    self.root.destroy()
+                except TclError:
+                    pass
+            if self.game_mode == 'runner':
+                return self.E.line_count, cur_frame
+            elif self.game_mode == 'snake':
+                return self.E.max_trail, cur_frame
 
     def game_loop(self):
         state = 0
-        while state == 0:
+        while state <= 0:
             time.sleep(.075)
             state, cur_frame = self.update_board()
         return state
 
 
 if __name__ == "__main__":
-    test = Interface()
+    test = Interface(game_mode='snake')
     print("you scored:" + str(test.game_loop()))
 
 
