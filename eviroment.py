@@ -1,7 +1,7 @@
 import numpy as np
 import sys
 from tkinter import Tk
-
+import random
 import matplotlib.pyplot as plt
 
 class RunnerEnv:
@@ -84,7 +84,7 @@ class RunnerEnv:
 
 class SnakeEnv:
 
-    def __init__(self, max_trail=15, board_width=50, board_height=100):
+    def __init__(self, max_trail=15, board_width=50, board_height=50, num_goals=15):
         self.max_trail = max_trail
         self.line_count = 0
         self.width = board_width
@@ -96,12 +96,12 @@ class SnakeEnv:
         self.board_state[:, :2] = 1
         self.board_state[:, -2:] = 1
         start = (np.random.rand(2) * [self.height - 10, self.width - 10]).astype(int)
-        self.goal = self.set_goal()
+        self.goals = [self.set_goal() for i in range(num_goals)]
         self.cur_pos = (start[0] + 5, start[1] + 5)
         self.board_state[self.cur_pos] = 2
-        self.board_state[self.goal] = 1.5
+        for goal in self.goals: self.board_state[goal] = 1.5
         self.trail = []
-        self.cur_direction = 'r'
+        self.cur_direction = random.choice(['r', 'l', 'u', 'd'])
 
     def set_goal(self):
         goal = (np.random.rand(2) * [self.height - 4, self.width - 4]).astype(int)
@@ -112,25 +112,32 @@ class SnakeEnv:
         return goal
 
     def move(self, direction):
-        self.board_state[self.cur_pos] = 1
         self.trail.append(self.cur_pos)
-        if direction == 'r':
+        if direction == 'r' and self.cur_direction != 'l':
+            self.board_state[self.cur_pos] = 1
             self.cur_pos = (self.cur_pos[0], self.cur_pos[1] + 1)
-        elif direction == 'l':
+            self.cur_direction = direction
+        elif direction == 'l' and self.cur_direction != 'r':
+            self.board_state[self.cur_pos] = 1
             self.cur_pos = (self.cur_pos[0], self.cur_pos[1] - 1)
-        elif direction == 'u':
+            self.cur_direction = direction
+        elif direction == 'u' and self.cur_direction != 'd':
+            self.board_state[self.cur_pos] = 1
             self.cur_pos = (self.cur_pos[0] - 1, self.cur_pos[1])
-        elif direction == 'd':
+            self.cur_direction = direction
+        elif direction == 'd' and self.cur_direction != 'u':
+            self.board_state[self.cur_pos] = 1
             self.cur_pos = (self.cur_pos[0] + 1, self.cur_pos[1])
+            self.cur_direction = direction
         else:
-            print('Bad action given', sys.stderr)
-            raise KeyError
-        self.cur_direction = direction
-        if self.cur_pos == self.goal:
-            self.goal = self.set_goal()
-            self.board_state[self.goal] = 1.5
-            self.max_trail += 3
-            return -1
+            return self.step()
+
+        for i in range(len(self.goals)):
+            if self.cur_pos == self.goals[i]:
+                self.goals[i] = self.set_goal()
+                self.board_state[self.goals[i]] = 1.5
+                self.max_trail += 3
+                return -1
         if len(self.trail) > self.max_trail:
             self.board_state[self.trail.pop(0)] = 0
         if self.board_state[self.cur_pos] == 1:

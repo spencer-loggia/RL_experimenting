@@ -65,6 +65,7 @@ class Interface:
         if toContinue:
             board_img = np.array(self.raw_state) * int(255 / 2)
             if self.human_disp:
+                time.sleep(.05)
                 try:
                     self.canvas.delete('all')
                     np_img = scipy.ndimage.zoom(board_img, 8, order=0)
@@ -81,9 +82,21 @@ class Interface:
             print("Game Over. Score: " + str(self.E.line_count))
         return None
 
-    def update_board(self):
-        win_state = self.E.step()
+    def update_board(self, move_made=None):
+        win_state = 0
+        if move_made is None:
+            win_state = self.E.step()
+        elif move_made == 'l':
+            win_state = self.E.move('l')
+        elif move_made == 'r':
+            win_state = self.E.move('r')
+        elif move_made == 'u':
+            win_state = self.E.move('u')
+        elif move_made == 'd':
+            win_state = self.E.move('d')
+
         self.raw_state = self.E.board_state
+
         if win_state <= 0:
             cur_frame = self.display_frame()
             return win_state, cur_frame
@@ -97,7 +110,7 @@ class Interface:
             if self.game_mode == 'runner':
                 return self.E.line_count, cur_frame
             elif self.game_mode == 'snake':
-                return self.E.max_trail, cur_frame
+                return win_state, cur_frame
 
     def game_loop(self):
         state = 0
