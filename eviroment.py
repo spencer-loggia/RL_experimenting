@@ -84,8 +84,8 @@ class RunnerEnv:
 
 class SnakeEnv:
 
-    def __init__(self, max_trail=15, board_width=50, board_height=50, num_goals=15):
-        self.max_trail = max_trail
+    def __init__(self, max_trail=15, board_width=50, board_height=50, num_goals=15, num_player=1):
+        self.max_trail = [max_trail for i in range(num_player)]
         self.line_count = 0
         self.width = board_width
         self.height = board_height
@@ -95,57 +95,62 @@ class SnakeEnv:
         self.board_state[-2:, :] = 1
         self.board_state[:, :2] = 1
         self.board_state[:, -2:] = 1
-        start = (np.random.rand(2) * [self.height - 10, self.width - 10]).astype(int)
+        starts = [self.set_goal(edge_margin=5) for i in range(num_player)]
         self.goals = [self.set_goal() for i in range(num_goals)]
-        self.cur_pos = (start[0] + 5, start[1] + 5)
-        self.board_state[self.cur_pos] = 2
+        self.cur_pos = [[start[0], start[1]] for start in starts]
+        for p in self.cur_pos:
+            self.board_state[tuple(p)] = 2
         for goal in self.goals: self.board_state[goal] = 1.5
-        self.trail = []
-        self.cur_direction = random.choice(['r', 'l', 'u', 'd'])
+        self.trail = [[] for i in range(num_player)]
+        self.cur_direction = [random.choice(['r', 'l', 'u', 'd']) for i in range(num_player)]
+        self.num_alive = num_player
 
-    def set_goal(self):
-        goal = (np.random.rand(2) * [self.height - 4, self.width - 4]).astype(int)
-        goal = (goal[0] + 2, goal[1] + 2)
+    def set_goal(self, edge_margin=2):
+        goal = (np.random.rand(2) * [self.height - (2*edge_margin), self.width - (2*edge_margin)]).astype(int)
+        goal = (goal[0] + edge_margin, goal[1] + edge_margin)
         check = self.board_state[goal]
         if check != 0:
             goal = self.set_goal()
         return goal
 
-    def move(self, direction):
-        self.trail.append(self.cur_pos)
-        if direction == 'r' and self.cur_direction != 'l':
-            self.board_state[self.cur_pos] = 1
-            self.cur_pos = (self.cur_pos[0], self.cur_pos[1] + 1)
-            self.cur_direction = direction
-        elif direction == 'l' and self.cur_direction != 'r':
-            self.board_state[self.cur_pos] = 1
-            self.cur_pos = (self.cur_pos[0], self.cur_pos[1] - 1)
-            self.cur_direction = direction
-        elif direction == 'u' and self.cur_direction != 'd':
-            self.board_state[self.cur_pos] = 1
-            self.cur_pos = (self.cur_pos[0] - 1, self.cur_pos[1])
-            self.cur_direction = direction
-        elif direction == 'd' and self.cur_direction != 'u':
-            self.board_state[self.cur_pos] = 1
-            self.cur_pos = (self.cur_pos[0] + 1, self.cur_pos[1])
-            self.cur_direction = direction
+    def move(self, direction, pid=0):
+        self.trail[pid].append(self.cur_pos[pid])
+        if direction == 'r' and self.cur_direction[pid] != 'l':
+            self.board_state[tuple(self.cur_pos[pid])] = 1
+            self.cur_pos[pid] = [self.cur_pos[pid][0], self.cur_pos[pid][1] + 1]
+            self.cur_direction[pid] = direction
+        elif direction == 'l' and self.cur_direction[pid] != 'r':
+            self.board_state[tuple(self.cur_pos[pid])] = 1
+            self.cur_pos[pid] = [self.cur_pos[pid][0], self.cur_pos[pid][1] - 1]
+            self.cur_direction[pid] = direction
+        elif direction == 'u' and self.cur_direction[pid] != 'd':
+            self.board_state[tuple(self.cur_pos[pid])] = 1
+            self.cur_pos[pid] = [self.cur_pos[pid][0] - 1, self.cur_pos[pid][1]]
+            self.cur_direction[pid] = direction
+        elif direction == 'd' and self.cur_direction[pid] != 'u':
+            self.board_state[tuple(self.cur_pos[pid])] = 1
+            self.cur_pos[pid] = [self.cur_pos[pid][0] + 1, self.cur_pos[pid][1]]
+            self.cur_direction[pid] = direction
         else:
-            return self.step()
+            return self.step(pid=pid)
 
         for i in range(len(self.goals)):
-            if self.cur_pos == self.goals[i]:
+            if tuple(self.cur_pos[pid]) == self.goals[i]:
                 self.goals[i] = self.set_goal()
-                self.board_state[self.goals[i]] = 1.5
-                self.max_trail += 3
+                self.board_state[tuple(self.goals[i])] = 1.5
+                self.max_trail[pid] += 2
                 return -1
-        if len(self.trail) > self.max_trail:
-            self.board_state[self.trail.pop(0)] = 0
-        if self.board_state[self.cur_pos] == 1:
+        if len(self.trail[pid]) > self.max_trail[pid]:
+            self.board_state[tuple(self.trail[pid].pop(0))] = 0
+        if self.board_state[tuple(self.cur_pos[pid])] == 1:
+            for t in self.trail[pid]:
+                self.board_state[tuple(t)] = 0
+            self.num_alive -= 1
             return 1
         else:
-            self.board_state[self.cur_pos] = 2
+            self.board_state[tuple(self.cur_pos[pid])] = 2
             return 0
 
-    def step(self):
-        return self.move(self.cur_direction)
+    def step(self, pid=0):
+        return self.move(self.cur_direction[pid], pid=pid)
 

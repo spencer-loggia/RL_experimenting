@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import TclError
 import eviroment
+import filters
 import numpy as np
 from tkinter import Tk, Canvas, Frame, Text, INSERT
 from PIL import Image, ImageTk
@@ -8,17 +9,18 @@ import scipy.ndimage
 import time
 
 class Interface:
-    def __init__(self, human_disp=True, human_player=True, game_mode='runner', FPS=10):
+    def __init__(self, human_disp=True, human_player=True, game_mode='runner', num_players=1, observe_dist=None, FPS=10):
         self.game_mode = game_mode
         if game_mode == 'runner':
             self.E = eviroment.RunnerEnv()
         elif game_mode == 'snake':
-            self.E = eviroment.SnakeEnv()
+            self.E = eviroment.SnakeEnv(num_player=num_players)
         self.raw_state = self.E.board_state
         self.human_disp = human_disp
         self.human_player = human_player
         self.command = ''
         self.root = None
+        self.observe_dist = observe_dist
         if human_disp:
             self.root = Tk()
             board_img = np.array(self.raw_state) * int(255 / 2)
@@ -61,9 +63,14 @@ class Interface:
                 # self.canvas.destroy()
                 self.root.destroy()
 
-    def display_frame(self, toContinue=True):
+    def display_frame(self, toContinue=True, pid=0):
         if toContinue:
             board_img = np.array(self.raw_state) * int(255 / 2)
+            if self.observe_dist is not None:
+                cur_pos = tuple(self.E.cur_pos[pid])
+                x = filters.partial_observability_filter(board_img, self.observe_dist, cur_pos)
+            else:
+                x = board_img # .cuda(0)
             if self.human_disp:
                 time.sleep(.05)
                 try:
@@ -77,32 +84,32 @@ class Interface:
                 except tk.TclError:
                     if self.root is not None:
                         self.root = None
-            return board_img
+            return x
         else:
             print("Game Over. Score: " + str(self.E.line_count))
         return None
 
-    def update_board(self, move_made=None):
+    def update_board(self, move_made=None, pid=0):
         win_state = 0
         if move_made is None:
-            win_state = self.E.step()
+            win_state = self.E.step(pid=pid)
         elif move_made == 'l':
-            win_state = self.E.move('l')
+            win_state = self.E.move('l', pid=pid)
         elif move_made == 'r':
-            win_state = self.E.move('r')
+            win_state = self.E.move('r', pid=pid)
         elif move_made == 'u':
-            win_state = self.E.move('u')
+            win_state = self.E.move('u', pid=pid)
         elif move_made == 'd':
-            win_state = self.E.move('d')
+            win_state = self.E.move('d', pid=pid)
 
         self.raw_state = self.E.board_state
 
         if win_state <= 0:
-            cur_frame = self.display_frame()
+            cur_frame = self.display_frame(pid=pid)
             return win_state, cur_frame
         else:
             cur_frame = None
-            if self.root is not None:
+            if self.root is not None and self.E.num_alive == 0:
                 try:
                     self.root.destroy()
                 except TclError:

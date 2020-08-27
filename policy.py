@@ -79,9 +79,10 @@ class ConvNetwork(nn.Module):
         self.cn1 = nn.Conv2d(1, 10, 4, stride=2, padding=2)  # .cuda(0)
         self.lrelu = nn.LeakyReLU()  # .cuda(0)
         self.cn2 = nn.Conv2d(10, 20, 5, stride=2, padding=2)  # .cuda(0)
-        self.cn3 = nn.Conv2d(20, 30, 3, stride=1, padding=2)
-        self.cn4 = nn.Conv2d(30, 40, 6, stride=3, padding=2)
+        self.cn3 = nn.Conv2d(20, 30, 3, stride=1)
+        self.cn4 = nn.Conv2d(30, 40, 6, stride=3, padding=3)
         self.cn5 = nn.Conv2d(40, 50, 4, stride=2, padding=2)# .cuda(0)
+        self.cn6 = nn.Conv2d(50, 60, 2)
         self.norm = nn.BatchNorm2d(20)  # .cuda(0)
         self.mpl = nn.MaxPool2d(3)  # .cuda(0)
         self.mpl2 = nn.MaxPool2d(2)  # .cuda(0)
@@ -91,9 +92,10 @@ class ConvNetwork(nn.Module):
         self.tanh = nn.Tanh()  # .cuda(0)
         # self.ln2 = nn.Linear(2500, 1250)  # .cuda(0)
 
-        self.fc1 = nn.Linear(450, 150)  # .cuda(0)
-        self.fc2 = nn.Linear(150, 40)  # .cuda(0)
-        self.fc3 = nn.Linear(40, 4)  # .cuda(0)
+        self.fc1 = nn.Linear(60, 40)  # .cuda(0)
+        self.fc2 = nn.Linear(40, 20)  # .cuda(0)
+        self.fc3 = nn.Linear(20, 10)  # .cuda(0)
+        self.fc4 = nn.Linear(10, 4)
 
     def forward(self, x, e=.5, batch_size=1, training=True):
         #torch.cuda.set_device(0)
@@ -119,17 +121,23 @@ class ConvNetwork(nn.Module):
         x = self.cn5(x)
         x = self.lrelu(x)
 
+        x = self.cn6(x)
+        x = self.lrelu(x)
+
+
         x = x.reshape(batch_size, -1)  # .cuda(0)
 
         x = self.fc1(x)  # .cuda(0)
         x = self.lrelu(x)  # .cuda(0)
 
         x = self.fc2(x)  # .cuda(0)
-        y = self.lrelu(x)  # .cuda(0)
+        x = self.lrelu(x)  # .cuda(0)
 
-        y = self.fc3(y)  # .cuda(0)
+        x = self.fc3(x)  # .cuda(0)
+        x = self.lrelu(x)
 
-        reward = y
-        return reward.clone()  # .cuda(0)
+        y = self.fc4(x)
+
+        return y.clone()  # .cuda(0)
 
 
