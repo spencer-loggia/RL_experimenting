@@ -9,11 +9,13 @@ import scipy.ndimage
 import time
 
 class Interface:
-    def __init__(self, human_disp=True, human_player=True, game_mode='runner', num_players=1, observe_dist=None, FPS=10):
+    def __init__(self, human_disp=True, human_player=True, record_game=False, game_mode='runner', num_players=1, observe_dist=None, FPS=10):
         self.game_mode = game_mode
+        self.action_code_map = None
         if game_mode == 'runner':
             self.E = eviroment.RunnerEnv()
         elif game_mode == 'snake':
+            self.action_code_map = ['l', 'r', 'u', 'd']
             self.E = eviroment.SnakeEnv(num_player=num_players)
         self.raw_state = self.E.board_state
         self.human_disp = human_disp
@@ -21,6 +23,7 @@ class Interface:
         self.command = ''
         self.root = None
         self.observe_dist = observe_dist
+        self.record = None
         if human_disp:
             self.root = Tk()
             board_img = np.array(self.raw_state) * int(255 / 2)
@@ -38,6 +41,8 @@ class Interface:
             self.root.bind('<Up>', self.upKey)
             self.root.bind('<Down>', self.downKey)
             self.frame.pack()
+            if record_game:
+                self.record = []
 
     def leftKey(self, event):
         if self.human_player:
@@ -70,7 +75,7 @@ class Interface:
                 cur_pos = tuple(self.E.cur_pos[pid])
                 x = filters.partial_observability_filter(board_img, self.observe_dist, cur_pos)
             else:
-                x = board_img # .cuda(0)
+                x = board_img  # .cuda(0)
             if self.human_disp:
                 time.sleep(.05)
                 try:
@@ -102,22 +107,23 @@ class Interface:
         elif move_made == 'd':
             win_state = self.E.move('d', pid=pid)
 
+        if move_made is None:
+            code = self.action_code_map.index(self.E.cur_direction[pid])
+        else:
+            code = self.action_code_map.index(move_made)
         self.raw_state = self.E.board_state
 
-        if win_state <= 0:
-            cur_frame = self.display_frame(pid=pid)
-            return win_state, cur_frame
-        else:
+        cur_frame = self.display_frame(pid=pid)
+        if self.record is not None:
+            self.record.append([cur_frame, code, win_state])
+        if win_state > 0:
             cur_frame = None
             if self.root is not None and self.E.num_alive == 0:
                 try:
                     self.root.destroy()
                 except TclError:
                     pass
-            if self.game_mode == 'runner':
-                return self.E.line_count, cur_frame
-            elif self.game_mode == 'snake':
-                return win_state, cur_frame
+        return win_state, cur_frame
 
     def game_loop(self):
         state = 0
