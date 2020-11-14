@@ -20,42 +20,52 @@ class Agent:
         self.final_reward = int()
         self.reward_states = None
         self.game_mode = None
+        self.cuda = True
 
     def train(self, NUM_GAMES, max_drop=.5, max_explore=.85, gamma=.9, disp_iter=100, save_iter=1000,
-              game_mode='runner', lr=.001):
+              game_mode='runner', trials_per_batch=100, lr=.001):
         if max_drop > 1 or max_explore > 1:
             print('Invalid Hyperparameter. Learning Aborted', sys.stderr)
             return
         data_file = open('./data/' + game_mode + '_scores.csv', 'w')
         data_file.write("iter, score\n")
         self.optimizers = [torch.optim.Adam(self.models[i].parameters(), lr=lr) for i in range(self.num_agents)]
-        for i in range(NUM_GAMES):
-            print("GAME # " + str(i))
-            torch.cuda.empty_cache()
-            self.short_term_memory = [[] for i in range(self.num_agents)]
-            self.reward_states = [[] for i in range(self.num_agents)]
-            self.final_reward = 0
-            if (i + 1) % save_iter == 0:
-                for j in range(self.num_agents):
-                    file = open('./models/' + game_mode + '_trained_agent_' + str(j) + '_iter_' + str(i + 1) + '.pkl', 'wb')
-                    torch.save(self.models[j], file)
-                    file.close()
-            if i % disp_iter == 0:
-                if game_mode == 'runner':
-                    self.interface = human_interface.Interface(human_player=False)
-                elif game_mode == 'snake':
-                    self.interface = human_interface.Interface(human_player=False, game_mode='snake',
-                                                               num_players=self.num_agents, observe_dist=10)
-            else:
-                if game_mode == 'runner':
-                    self.interface = human_interface.Interface(human_player=False, human_disp=False)
-                elif game_mode == 'snake':
-                    self.interface = human_interface.Interface(human_player=False, human_disp=False,
-                                                               game_mode='snake', num_players=self.num_agents,
-                                                               observe_dist=10)
-            for optimizer in self.optimizers: optimizer.zero_grad()
+        for i in range(int(NUM_GAMES / trials_per_batch)):
 
-            self.play_game(max_explore, i / NUM_GAMES, save_exp=True)
+            # initialize new memory for batch
+            self.short_term_memory = [
+                [[] for j in range(trials_per_batch)]
+                for i in range(self.num_agents)]
+            self.reward_states = [
+                [[] for j in range(trials_per_batch)]
+                for i in range(self.num_agents)]
+
+            for j in range(trials_per_batch):
+                print("GAME # " + str(i))
+                torch.cuda.empty_cache()
+                self.final_reward = 0
+                if (i + 1) * (j+1) % save_iter == 0:
+                    for w in range(self.num_agents):
+                        file = open('./models/' + game_mode + '_trained_agent_' + str(w) + '_iter_' + str((i + 1)*(j+1)) + '.pkl',
+                                    'wb')
+                        torch.save(self.models[w], file)
+                        file.close()
+                if int((i+1)*(j+1) - 1) % disp_iter == 0:
+                    if game_mode == 'runner':
+                        self.interface = human_interface.Interface(human_player=False)
+                    elif game_mode == 'snake':
+                        self.interface = human_interface.Interface(human_player=False, game_mode='snake',
+                                                                   num_players=self.num_agents, observe_dist=10)
+                else:
+                    if game_mode == 'runner':
+                        self.interface = human_interface.Interface(human_player=False, human_disp=False)
+                    elif game_mode == 'snake':
+                        self.interface = human_interface.Interface(human_player=False, human_disp=False,
+                                                                   game_mode='snake', num_players=self.num_agents,
+                                                                   observe_dist=10)
+                for optimizer in self.optimizers: optimizer.zero_grad()
+
+                self.play_game(max_explore, i / NUM_GAMES, trial_id=j, save_exp=True)
 
             # set reward dict
             reward_dict = None
@@ -88,8 +98,8 @@ class Agent:
                 self.interface.game_loop()
                 record = np.array(self.interface.record)
                 # determine moves made by model
-                agent_mem = record[:, 0:2]
-                agent_response = record[:, 2]
+                agent_mem = [record[:, 0:2]]  # needs to be list to comply with meditation expectations
+                agent_response = [record[:, 2]]  # needs to be list to comply with meditation expectations
                 if lr != 0:
                     self.meditate(gamma, reward_dict, agent_mem, agent_response, self.models[0], self.optimizers[0])
         # set both models to the supervised one
@@ -107,37 +117,49 @@ class Agent:
         reward and positive response has negative reward
         :return: None
         """
-        num_states = len(agent_mem)
-        shape = agent_mem[0][0].shape
-        batch_x = torch.zeros(num_states, shape[0], shape[1])  # .cuda(0)
-        batch_y = torch.zeros(num_states)  # .cuda(0)
-        move_indices = torch.zeros(num_states).long()  # .cuda(0)
-        # fill reward states
-        for reward_type in list(reward_dict.keys()):
-            inds = np.argwhere(np.array(agent_response) == reward_type).reshape(-1)
-            batch_y[inds] = reward_dict[reward_type]
+        shape = agent_mem[0][0][0].shape
+        big_batch_x = torch.empty((0, shape[0], shape[1])).cuda(0)
+        big_batch_y = torch.empty(0).cuda(0)
+        big_batch_y_hat = torch.empty(0).cuda(0)
+        for j in range(len(agent_mem)):
+            num_states = len(agent_mem[j])
+            batch_x = torch.zeros(num_states, shape[0], shape[1])  # .cuda(0)
+            batch_y = torch.zeros(num_states)  # .cuda(0)
+            move_indices = torch.zeros(num_states).long()  # .cuda(0)
+            if self.cuda:
+                batch_x = batch_x.cuda(0)
+                batch_y = batch_y.cuda(0)
+                move_indices = move_indices.cuda(0)
+            # fill reward states
+            for reward_type in list(reward_dict.keys()):
+                inds = np.argwhere(np.array(agent_response[j]) == reward_type).reshape(-1)
+                batch_y[inds] = reward_dict[reward_type]
 
-        for i in range(num_states - 2, -1, -1):
-            try:
-                batch_x[i] = torch.from_numpy(agent_mem[i, 0])
-            except TypeError:
-                batch_x[i] = agent_mem[i][0]
-            # recall what move was made to allow for partial gradient decent
-            move_indices[i] = agent_mem[i][1]  # .cuda(0)
-            # propogate rewards through time
-            batch_y[i] = batch_y[i] + (gamma * batch_y[i + 1])
-        batch_y_hat = model(batch_x, batch_size=num_states, training=False)
-        optimizer.zero_grad()
-        move_indices = move_indices.reshape([num_states, 1])
-        batch_y_hat = batch_y_hat.gather(1, move_indices).reshape([-1])  # select moves that were made
-        loss = nn.functional.mse_loss(batch_y_hat, batch_y)
+            for i in range(num_states - 2, -1, -1):
+                try:
+                    batch_x[i] = torch.from_numpy(agent_mem[j, i, 0])
+                except TypeError:
+                    batch_x[i] = agent_mem[j][i][0]
+                # recall what move was made to allow for partial gradient decent
+                move_indices[i] = agent_mem[j][i][1]  # .cuda(0)
+                # propogate rewards through time
+                batch_y[i] = batch_y[i] + (gamma * batch_y[i + 1])
+            batch_y_hat = model(batch_x.cuda(0), batch_size=num_states, training=False)
+            optimizer.zero_grad()
+            move_indices = move_indices.reshape([num_states, 1])
+            batch_y_hat = batch_y_hat.gather(1, move_indices).reshape([-1]).cuda(0)  # select moves that were made
+            big_batch_x = torch.cat((big_batch_x, batch_x), 0)
+            big_batch_y = torch.cat([big_batch_y, batch_y], 0)
+            big_batch_y_hat = torch.cat([big_batch_y_hat, batch_y_hat], 0)
+
+        loss = nn.functional.mse_loss(big_batch_y_hat.cuda(0), big_batch_y.cuda(0))
         try:
             loss.backward()
             optimizer.step()
         except RuntimeError:
             pass
 
-    def play_game(self, max_explore, completion_ratio, save_exp=True, exploration_decay='linear'):
+    def play_game(self, max_explore, completion_ratio, trial_id=0, save_exp=True, exploration_decay='linear'):
         count = 0
         games_over = [False for i in range(self.num_agents)]
         # need to preform each agents move in parallel (if possible) on each game step.
@@ -154,8 +176,9 @@ class Agent:
                 x = torch.from_numpy(self.cur_frame)
                 if x.shape[0] != 20:
                     print('ruh-ro')
-                exp_reward = self.models[i](x.float(), training=False)  # setting training to false to avoid use of dropout, which I found reduced
-                                                                    # training speed w/o significant performance benefit in this case
+                exp_reward = self.models[i](x.float(),
+                                            training=False)  # setting training to false to avoid use of dropout, which I found reduced
+                # training speed w/o significant performance benefit in this case
                 if count % 50 == 0:
                     print(exp_reward)
                 # time.sleep(.1)
@@ -163,7 +186,7 @@ class Agent:
                 if exploration_decay == 'exp':
                     t = (1 - max_explore) * np.exp(np.log(1 / (1 - max_explore)) * (1 / .9) * completion_ratio)
                 elif exploration_decay == 'linear':
-                    t = (1 - max_explore) + (max_explore * (completion_ratio-.1))
+                    t = (1 - max_explore) + (max_explore * (completion_ratio - .1))
 
                 epsilon = np.random.random(1)
                 if epsilon <= t:
@@ -173,14 +196,14 @@ class Agent:
                     move = np.random.choice([0, 1, 2, 3])
                 move = int(move)
                 r, next_frame = self.interface.update_board(move_made=self.interface.action_code_map[move], pid=i)
-                if next_frame is not None or False not in games_over[:i] + games_over[i+1:]:
+                if next_frame is not None or False not in games_over[:i] + games_over[i + 1:]:
                     self.cur_frame = next_frame
-                self.reward_states[i].append(r)
+                self.reward_states[i][trial_id].append(r)
                 # if move is 4 or 5 go straight
                 if r > 0:
                     games_over[i] = True
                 if save_exp:
-                    self.short_term_memory[i].append([x.float(), torch.tensor(int(move)).long()])
+                    self.short_term_memory[i][trial_id].append([x.float(), torch.tensor(int(move)).long()])
             count += 1
         for i in range(self.num_agents):
             print("agent " + str(i) + " scored: " + str(self.interface.E.max_trail[i]))
@@ -197,10 +220,10 @@ class Agent:
 if __name__ == "__main__":
     # torch.cuda.set_device(0)
     torch.autograd.set_detect_anomaly(True)
-    bob = Agent(num_agents=1)
-    bob.load_models(iter_to_load=4, human_training=True)  # load saved policy to see trained agent play
+    bob = Agent(num_agents=2)
+    bob.load_models(iter_to_load=10000, human_training=False)  # load saved policy to see trained agent play
     # bob.eval(10)
-    #bob.learn_from_teacher(num_guided=4, lr=.01, game_mode='snake', gamma=.9)
-    bob.train(NUM_GAMES=1001, max_explore=.8, lr=.001, gamma=.9, disp_iter=100, save_iter=1000, game_mode='snake')
-    #bob.train(NUM_GAMES=10, max_explore=0, lr=0, gamma=.9, disp_iter=1, save_iter=1000, game_mode='snake')
+    # bob.learn_from_teacher(num_guided=4, lr=.01, game_mode='snake', gamma=.9)
+    # bob.train(NUM_GAMES=1000001, max_explore=.9, trials_per_batch=100, lr=.001, gamma=.9, disp_iter=10000, save_iter=10000, game_mode='snake')
+    bob.train(NUM_GAMES=10, max_explore=0, lr=0,trials_per_batch=1, gamma=.9, disp_iter=1, save_iter=1000, game_mode='snake')
     # torch.cuda.device_count()
