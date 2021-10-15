@@ -143,3 +143,22 @@ class ConvNetwork(nn.Module):
         return y.clone().cuda(0)  # .cuda(0)
 
 
+class RelationalAutoencoder(nn.Module):
+    def __init__(self):
+        super().__init__()
+        pass
+
+
+class VisualEncoder(nn.Module):
+    def __init__(self):
+        super().__init__()
+        pass
+
+
+class VisualDecoder(nn.Module):
+    def __init__(self):
+        super().__init__()
+        pass
+
+
+

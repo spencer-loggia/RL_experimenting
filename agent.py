@@ -56,12 +56,19 @@ class Agent:
                     elif game_mode == 'snake':
                         self.interface = human_interface.Interface(human_player=False, game_mode='snake',
                                                                    num_players=self.num_agents, observe_dist=10)
+                    elif game_mode == 'world':
+                        self.interface = human_interface.Interface(human_player=False, game_mode='world',
+                                                                   num_players=self.num_agents, observe_dist=10)
                 else:
                     if game_mode == 'runner':
                         self.interface = human_interface.Interface(human_player=False, human_disp=False)
                     elif game_mode == 'snake':
                         self.interface = human_interface.Interface(human_player=False, human_disp=False,
                                                                    game_mode='snake', num_players=self.num_agents,
+                                                                   observe_dist=10)
+                    elif game_mode == 'world':
+                        self.interface = human_interface.Interface(human_player=False, human_disp=False,
+                                                                   game_mode='world', num_players=self.num_agents,
                                                                    observe_dist=10)
                 for optimizer in self.optimizers: optimizer.zero_grad()
 
@@ -225,5 +232,5 @@ if __name__ == "__main__":
     # bob.eval(10)
     # bob.learn_from_teacher(num_guided=4, lr=.01, game_mode='snake', gamma=.9)
     # bob.train(NUM_GAMES=1000001, max_explore=.9, trials_per_batch=100, lr=.001, gamma=.9, disp_iter=10000, save_iter=10000, game_mode='snake')
-    bob.train(NUM_GAMES=10, max_explore=0, lr=0,trials_per_batch=1, gamma=.9, disp_iter=1, save_iter=1000, game_mode='snake')
+    bob.train(NUM_GAMES=10, max_explore=0, lr=0, trials_per_batch=1, gamma=.9, disp_iter=1, save_iter=1000, game_mode='snake')
     # torch.cuda.device_count()

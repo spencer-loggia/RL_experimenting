@@ -8,8 +8,9 @@ from PIL import Image, ImageTk
 import scipy.ndimage
 import time
 
+
 class Interface:
-    def __init__(self, human_disp=True, human_player=True, record_game=False, game_mode='runner', num_players=1, observe_dist=None, FPS=10):
+    def __init__(self, human_disp=True, human_player=True, record_game=False, game_mode='runner', num_players=1, observe_dist=None, FPS=10, **kwargs):
         self.game_mode = game_mode
         self.action_code_map = None
         if game_mode == 'runner':
@@ -17,6 +18,9 @@ class Interface:
         elif game_mode == 'snake':
             self.action_code_map = ['l', 'r', 'u', 'd']
             self.E = eviroment.SnakeEnv(num_player=num_players)
+        elif game_mode == 'world':
+            self.action_code_map = ['l', 'r', 'u', 'd']
+            self.E = eviroment.GridWorldRevolution(input_layout=kwargs['grid_layout'])
         self.raw_state = self.E.board_state
         self.human_disp = human_disp
         self.human_player = human_player
@@ -28,6 +32,10 @@ class Interface:
             self.root = Tk()
             board_img = np.array(self.raw_state) * int(255 / 2)
             np_img = scipy.ndimage.zoom(board_img, 8, order=0)
+            obs_env = scipy.ndimage.zoom(self.E.observable_env(pid=0) * 255, (10, 2.5), order=0)
+            obs_img = np.zeros((obs_env.shape[0], np_img.shape[1]))
+            obs_img[:, :obs_env.shape[1]] = obs_env
+            np_img = np.concatenate([np_img, obs_img], axis=0)
             img = ImageTk.PhotoImage(image=Image.fromarray(np_img), master=self.root)
             self.canvas = Canvas(self.root, width=np_img.shape[1], height=np_img.shape[0])
             self.canvas.create_image(1, 2, anchor="nw", image=img)
@@ -81,6 +89,10 @@ class Interface:
                 try:
                     self.canvas.delete('all')
                     np_img = scipy.ndimage.zoom(board_img, 8, order=0)
+                    obs_env = scipy.ndimage.zoom(self.E.observable_env(pid=0) * 255, (10, 2.5), order=0)
+                    obs_img = np.zeros((obs_env.shape[0], np_img.shape[1]))
+                    obs_img[:, :obs_env.shape[1]] = obs_env
+                    np_img = np.concatenate([np_img, obs_img], axis=0)
                     img = ImageTk.PhotoImage(image=Image.fromarray(np_img), master=self.root)
                     self.canvas.create_image(1, 2, anchor="nw", image=img)
                     self.canvas.pack()
@@ -134,7 +146,7 @@ class Interface:
 
 
 if __name__ == "__main__":
-    test = Interface(game_mode='snake')
+    test = Interface(game_mode='world', grid_layout='data/layouts/10_10_maze.png')
     print("you scored:" + str(test.game_loop()))
 
 
