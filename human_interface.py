@@ -19,7 +19,7 @@ class Interface:
             self.action_code_map = ['l', 'r', 'u', 'd']
             self.E = eviroment.SnakeEnv(num_player=num_players)
         elif game_mode == 'world':
-            self.action_code_map = ['l', 'r', 'u', 'd']
+            self.action_code_map = ['l', 'r', 'u', 'd', None]
             self.E = eviroment.GridWorldRevolution(input_layout=kwargs['grid_layout'])
         self.raw_state = self.E.board_state
         self.human_disp = human_disp
@@ -32,10 +32,6 @@ class Interface:
             self.root = Tk()
             board_img = np.array(self.raw_state) * int(255 / 2)
             np_img = scipy.ndimage.zoom(board_img, 8, order=0)
-            obs_env = scipy.ndimage.zoom(self.E.observable_env(pid=0) * 255, (10, 2.5), order=0)
-            obs_img = np.zeros((obs_env.shape[0], np_img.shape[1]))
-            obs_img[:, :obs_env.shape[1]] = obs_env
-            np_img = np.concatenate([np_img, obs_img], axis=0)
             img = ImageTk.PhotoImage(image=Image.fromarray(np_img), master=self.root)
             self.canvas = Canvas(self.root, width=np_img.shape[1], height=np_img.shape[0])
             self.canvas.create_image(1, 2, anchor="nw", image=img)
@@ -78,7 +74,7 @@ class Interface:
 
     def display_frame(self, toContinue=True, pid=0):
         if toContinue:
-            board_img = np.array(self.raw_state) * int(255 / 2)
+            board_img = np.array(self.raw_state)
             if self.observe_dist is not None:
                 cur_pos = tuple(self.E.cur_pos[pid])
                 x = filters.partial_observability_filter(board_img, self.observe_dist, cur_pos)
@@ -88,11 +84,7 @@ class Interface:
                 time.sleep(.05)
                 try:
                     self.canvas.delete('all')
-                    np_img = scipy.ndimage.zoom(board_img, 8, order=0)
-                    obs_env = scipy.ndimage.zoom(self.E.observable_env(pid=0) * 255, (10, 2.5), order=0)
-                    obs_img = np.zeros((obs_env.shape[0], np_img.shape[1]))
-                    obs_img[:, :obs_env.shape[1]] = obs_env
-                    np_img = np.concatenate([np_img, obs_img], axis=0)
+                    np_img = scipy.ndimage.zoom(board_img * int(255 / 2), 8, order=0)
                     img = ImageTk.PhotoImage(image=Image.fromarray(np_img), master=self.root)
                     self.canvas.create_image(1, 2, anchor="nw", image=img)
                     self.canvas.pack()
@@ -109,7 +101,7 @@ class Interface:
     def update_board(self, move_made=None, pid=0):
         win_state = 0
         if move_made is None:
-            win_state = self.E.step(pid=pid)
+            win_state = self.E.move(None, pid=pid)
         elif move_made == 'l':
             win_state = self.E.move('l', pid=pid)
         elif move_made == 'r':
@@ -119,7 +111,7 @@ class Interface:
         elif move_made == 'd':
             win_state = self.E.move('d', pid=pid)
 
-        if move_made is None:
+        if move_made is None and self.game_mode == 'snake':
             code = self.action_code_map.index(self.E.cur_direction[pid])
         else:
             code = self.action_code_map.index(move_made)

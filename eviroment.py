@@ -174,7 +174,7 @@ class GridWorldRevolution:
         self.board_state[0][self.board_state[0] == 0] = .5
         self.home = np.nonzero(self.board_state[1] == 0)[0]  # always at top
         self.goals = {self.set_goal() for _ in range(num_goals)}
-        self.cur_pos = [(1, np.random.choice(self.home)) for _ in range(num_players)] # cur_pos denotes the top left corner of the 4 pixel agent
+        self.cur_pos = [(1, np.random.choice(self.home)) for _ in range(num_players)]  # cur_pos denotes the top left corner of the 4 pixel agent
         for loc in self.cur_pos:
             self.board_state[loc[0]:min(loc[0]+2, self.height), loc[1]:min(loc[1] + 2, self.width)] = 1
         self.cur_direction = ['d' for _ in range(num_players)]
@@ -183,7 +183,7 @@ class GridWorldRevolution:
         c_coord = np.tile(np.arange(self.width), (self.height, 1))
         self._loc_arr = np.stack([r_coord, c_coord], axis=2)
 
-    def set_goal(self, edge_margin=2):
+    def set_goal(self, edge_margin=3):
         goal = (np.random.rand(2) * [self.height - (2*edge_margin), self.width - (2*edge_margin)]).astype(int)
         goal = (goal[0] + edge_margin, goal[1] + edge_margin)
         check = self.board_state[goal]
@@ -194,94 +194,38 @@ class GridWorldRevolution:
 
     def _preform_check_move(self, request, pid, direction):
         request = tuple(request)
-        loc = self.cur_pos[pid]
-        self.board_state[loc[0]:min(loc[0] + 2, self.height), loc[1]:min(loc[1] + 2, self.width)] = 0
-        if .5 not in (self.board_state[request[0]:min(request[0] + 2, self.height), request[1]:min(request[1] + 2, self.width)]):
+        if 0 < request[0] + 1 < self.height and 0 < request[1] + 1 < self.width and .5 not in np.array(
+                (self.board_state[request[0]:request[0] + 2,
+                 request[1]:request[1] + 2])
+        ).flatten():
+            loc = self.cur_pos[pid]
+            self.board_state[loc[0]:loc[0] + 2, loc[1]:loc[1] + 2] = 0
             self.cur_pos[pid] = request
             self.cur_direction[pid] = direction
-        loc = self.cur_pos[pid]
-        self.board_state[loc[0]:min(loc[0] + 2, self.height), loc[1]:min(loc[1] + 2, self.width)] = 1
-
-    def observable_env(self, pid=0, vis_res=32):
-        """
-        Depends on sensory mode. default can see luminance of vector of 10 pixels across in front
-        :param pid:
-        :param vis_res: the visual resolution. Must be a power of 2
-        :return:
-        """
-        direction = self.cur_direction[pid]
-        if direction == 'r':
-            rotation_size = -90
-            eye_pos = np.array([[1, -1], [1, 0]])
-        elif direction == 'l':
-            rotation_size = 90
-            eye_pos = np.array([[0, 0], [0, 1]])
-        elif direction == 'u':
-            rotation_size = 180
-            eye_pos = np.array([[0, -1], [0, 0]])
-        elif direction == 'd':
-            rotation_size = 0
-            eye_pos = np.array([[1, 0], [1, 1]])
-        else:
-            raise ValueError
-        self.board_state[self.cur_pos[pid]] = .9
-        rotated = np.round(rotate(self.board_state, rotation_size), decimals=1)
-        r_cur_pos = np.nonzero(rotated == .9)
-        r_loc_arr = self._loc_arr
-        l_center = (int(r_cur_pos[0][0]) + eye_pos[0, 0], int(r_cur_pos[1][0]) + eye_pos[0, 1])
-        r_center = (int(r_cur_pos[0][0]) + eye_pos[1, 0], int(r_cur_pos[1][0]) + eye_pos[1, 1])
-        center_arr = np.array([list(l_center), list(r_center)])
-        to_consider = r_loc_arr[max(l_center[0] + 1, r_center[0] + 1):, :, :]
-        is_solid = rotated[max(l_center[0] + 1, r_center[0] + 1):, :] > 0.1
-        solid_coords = to_consider[is_solid].astype(float)
-        dists = cdist(solid_coords, center_arr + np.array([[1, 0], [1,  0]]))
-        dists[dists == 0] = .001
-        components = np.tile(solid_coords, (2, 1, 1)) - center_arr[:, None, :]
-        components[components == 0] = .001
-        val = components[:, :, 1] / components[:, :, 0]
-        angles = np.round((np.degrees(np.arctan(val)) - 90) * -32)
-        sort_idx = np.argsort(dists, axis=0)
-        angles[0] = angles[0, sort_idx[:, 0]]
-        angles[1] = angles[1, sort_idx[:, 1]]
-        dists = dists.T
-        dists[0] = dists[0, sort_idx[:, 0]]
-        dists[1] = dists[1, sort_idx[:, 1]]
-        sensor = np.zeros((2, 5760))
-        visual_field = np.degrees(np.arctan(.5 / dists)) * 32
-        max_dist = max(dists.flatten())
-        for j in range(2):
-            for i in range(len(angles[j])):
-                l_bound = max(angles[j, i] - visual_field[j, i], 0)
-                r_bound = min(angles[j, i] + visual_field[j, i], sensor.shape[1])
-                lum_mod = min(r_bound - l_bound, 1) * (1 - (dists[j, i] / max_dist))
-                l_bound = int(np.ceil(l_bound))
-                r_bound = int(np.ceil(r_bound))
-                mask = np.zeros(r_bound - l_bound)
-                mask[sensor[j, l_bound:r_bound] == 0] = 1
-                obs_idx = solid_coords[sort_idx[i, j]].astype(int)
-                luminance = rotated[obs_idx[0], obs_idx[1]]
-                sensor[j, l_bound:r_bound] += luminance * mask * lum_mod
-        sensor = zoom(sensor, (1, 1 / 45), order=0)
-        return sensor
+            loc = self.cur_pos[pid]
+            self.board_state[loc[0]:min(loc[0] + 2, self.height), loc[1]:min(loc[1] + 2, self.width)] = 1
+            return 0
+        return 1
 
     def move(self, direction, pid: int = 0):
         self.hp -= 1
-        print(self.hp)
         if direction == 'r':
             request = [self.cur_pos[pid][0], self.cur_pos[pid][1] + 1]
-            self._preform_check_move(request, pid, direction)
+            hit = self._preform_check_move(request, pid, direction)
         elif direction == 'l':
             request = [self.cur_pos[pid][0], self.cur_pos[pid][1] - 1]
-            self._preform_check_move(request, pid, direction)
+            hit = self._preform_check_move(request, pid, direction)
         elif direction == 'u':
             request = [self.cur_pos[pid][0] - 1, self.cur_pos[pid][1]]
-            self._preform_check_move(request, pid, direction)
+            hit = self._preform_check_move(request, pid, direction)
         elif direction == 'd':
             request = [self.cur_pos[pid][0] + 1, self.cur_pos[pid][1]]
-            self._preform_check_move(request, pid, direction)
+            hit = self._preform_check_move(request, pid, direction)
         else:
-            return 0
-
+            request = [self.cur_pos[pid][0], self.cur_pos[pid][1]]
+            hit = self._preform_check_move(request, pid, direction)
+        if hit:
+            self.hp -= .25
         loc = tuple(self.cur_pos[pid])
         agent_coords = self._loc_arr[loc[0]:min(loc[0] + 2, self.height), loc[1]:min(loc[1] + 2, self.width)]
         agent_coords = agent_coords.reshape(-1, 2)
@@ -293,11 +237,14 @@ class GridWorldRevolution:
                 self.goals.add(self.set_goal())
             self.hp += 20
             return -1
-        if self.hp == 0:
+        if self.hp <= 0:
             self.num_alive -= 1
             return 100
         return 0
 
     def step(self, pid=0):
         self.hp -= .25
+        if self.hp <= 0:
+            self.num_alive -= 1
+            return 100
         return 0

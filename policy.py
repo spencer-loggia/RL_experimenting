@@ -2,6 +2,7 @@ from torch import nn
 import numpy as np
 from torch import functional as F
 import torch
+from DenseAssociative import TDAMN
 
 
 class Network(nn.Module):
@@ -143,22 +144,66 @@ class ConvNetwork(nn.Module):
         return y.clone().cuda(0)  # .cuda(0)
 
 
-class RelationalAutoencoder(nn.Module):
-    def __init__(self):
+class SAPNet(nn.Module):
+    """
+    observable environment size is 21
+    """
+    def __init__(self, verbose=False):
+
         super().__init__()
-        pass
+        self.conv1 = nn.Conv2d(kernel_size=3, in_channels=1, out_channels=16, padding=1)
+        self.pool1 = nn.MaxPool2d(kernel_size=3)  # 7 * 7 * 16
+        self.tdamn1 = TDAMN(size=(7*7*16), verbose=verbose)  # 7 * 7 * 32
+        self.conv2 = nn.Conv2d(kernel_size=3, in_channels=33, out_channels=32, padding=1)  # 7 7 32
+        self.pool2 = nn.MaxPool2d(kernel_size=2, padding=1)  # 4, 4, 32
+        self.tdamn2 = TDAMN(size=(4 * 4 * 32), verbose=verbose)  # 4, 4, 64
+        self.conv3 = nn.Conv2d(kernel_size=4, in_channels=64, out_channels=16)  # 1, 1, 16
+        self.tdamn3 = TDAMN(size=16, verbose=verbose)  # 1, 1, 32
+        self.conv4 = nn.Conv2d(kernel_size=1, in_channels=32, out_channels=5)
+        self.activ = nn.Tanh()
 
+        self.sal_active = nn.Sigmoid()
+        self.sal2 = nn.Linear(4 * 4 * 32, 1)
+        self.sal3 = nn.Linear(1 * 1 * 16, 1)
 
-class VisualEncoder(nn.Module):
-    def __init__(self):
-        super().__init__()
-        pass
+    def forward(self, x, x_internal):
+        h = self.conv1(x)
+        h = self.pool1(h)
+        h = self.activ(h)
+        shapeh = list(h.shape)
+        shapeh[1] = shapeh[1] * 2 # channel dim doubled
+        h = self.tdamn1(h.flatten())
+        h = h.reshape(shapeh)
 
+        # shape internal to whole channel
+        xcount = (7 * 7) / (1 + np.exp(-1 * (.05 * x_internal - 5)))
+        internal = np.zeros((7 * 7))
+        to_set = np.random.choice(np.arange(7 * 7), np.int(xcount), replace=False)
+        internal[to_set] = 1
+        internal = torch.Tensor(internal.reshape((1, 1, 7, 7)))
 
-class VisualDecoder(nn.Module):
-    def __init__(self):
-        super().__init__()
-        pass
+        h = torch.cat([h, internal], dim=1)
+        h = self.conv2(h)
+        h = self.pool2(h)
+        h = self.activ(h)
+        shapeh = list(h.shape)
+        shapeh[1] = shapeh[1] * 2  # channel dim doubled
+        flat_h = h.flatten()
+        h = self.tdamn2(flat_h, gamma_override=self.sal_active(self.sal2(flat_h)))
+        h = h.reshape(shapeh)
 
+        h = self.conv3(h)
+        h = self.activ(h)
+        shapeh = list(h.shape)
+        shapeh[1] = shapeh[1] * 2  # channel dim doubled
+        flat_h = h.flatten()
+        h = self.tdamn3(flat_h, gamma_override=self.sal_active(self.sal3(flat_h)))
+        h = h.reshape(shapeh)
+        h = self.conv4(h)  # action space in channel dim
+        h = h.reshape(-1)
+        return h
 
+    def reset(self):
+        for dense in [self.tdamn1, self.tdamn2, self.tdamn3]:
+            dense.reset_voltage_states()
 

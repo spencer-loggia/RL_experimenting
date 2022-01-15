@@ -1,12 +1,117 @@
 import torch
 from torch import nn
 import numpy as np
-from policy import ConvNetwork
+from policy import ConvNetwork, SAPNet
 import human_interface
 import copy
 import filters
 import time
 import sys
+import pickle
+
+
+class CogAgent:
+    def __init__(self, env_type='grid_world', lr=.00001, dev='cpu', temporal_discount=.9, verbose=False):
+        self.interface = None
+        self.model = SAPNet(verbose=verbose)
+        self.gradient_optimizer = torch.optim.SGD(self.model.parameters(), lr)
+        self.cur_frame = None
+        self.game_mode = 'grid_world'
+        self.dev = dev
+        self.gamma = temporal_discount
+        self.actions = ['l', 'r', 'u', 'd', None]
+        self.verbose = verbose
+
+    def play_game(self, human_disp=False, epsilon=.6):
+        loss_fxn = torch.nn.MSELoss()
+        alive = True
+        count = 0
+        obj_count = 0
+        if human_disp:
+            self.interface = human_interface.Interface(human_player=False, human_disp=True,
+                                                       game_mode='world', num_players=1,
+                                                       grid_layout='data/layouts/10_10_maze.png')
+        else:
+            self.interface = human_interface.Interface(human_player=False, human_disp=False,
+                                                       game_mode='world', num_players=1,
+                                                       grid_layout='data/layouts/10_10_maze.png')
+
+        self.cur_frame = self.interface.display_frame(pid=0)
+        cur_reward_state = 0
+        while cur_reward_state <= 0:
+            self.gradient_optimizer.zero_grad()
+            obs = filters.partial_observability_filter(self.cur_frame,
+                                                       observe_dist=10,
+                                                       origin=self.interface.E.cur_pos)
+            height, width = obs.shape
+            obs = obs.reshape((1, 1, height, width))
+
+            exp_reward = self.model(obs, self.interface.E.hp)  # update voltages, encode, poll, and output
+            if self.verbose:
+                print('expected cost vector:', list(exp_reward))
+            if np.nan in exp_reward:
+                print("numerical error in expected reward computation", sys.stderr)
+                raise ValueError
+
+            if np.random.rand(1) < epsilon:
+                action_code = np.random.choice(np.arange(4))
+            else:
+                action_code = torch.argmin(exp_reward)
+
+            next_reward_state, next_frame = self.interface.update_board(self.actions[action_code], pid=0)
+            if next_reward_state < 0:
+                obj_count += 1
+            if next_reward_state > 0:
+                next_reward_hat = torch.Tensor([float(next_reward_state)])
+            else:
+                next_obs = filters.partial_observability_filter(next_frame, 10, self.interface.E.cur_pos)
+                try:
+                    next_obs = next_obs.reshape((1, 1, height, width))
+                except Exception:
+                    print('observation did not have requesite dimensionality', sys.stderr)
+                    raise ValueError
+                with torch.no_grad():
+                    next_reward_hat = torch.min(self.model(next_obs, self.interface.E.hp))
+
+            target = cur_reward_state + self.gamma * next_reward_hat
+            if torch.isnan(target):
+                print("numerical error in r state target computation", sys.stderr)
+                raise ValueError
+            pred = exp_reward[action_code]
+            loss = loss_fxn(pred, target)
+            if torch.isnan(loss):
+                print("numerical error")
+            loss.backward()
+            self.gradient_optimizer.step()
+            cur_reward_state = next_reward_state
+            self.cur_frame = next_frame
+            count += 1
+        self.cur_frame = None
+        self.interface = None
+        self.gradient_optimizer.zero_grad()
+        self.model.reset()
+        print("lifetime: ", count, "rewards obtained: ", obj_count)
+        return count
+
+    def train(self, epochs=1001, max_explore=.85, disp_iter=100, save_iter=1000):
+        lifetimes = []
+        for i in range(epochs):
+            completion_ratio = i / epochs
+            epsilon = max(max_explore * (1 - completion_ratio), .02)
+            if (i + 1) % save_iter == 0:
+                file = open('./models/' + self.game_mode + '_iter_' + str(i) + '.pkl',
+                            'wb')
+                pickle.dump(self.model, file)
+            human_disp = False
+            if ((i + 1) % disp_iter) == 0:
+                print("DISPLAYING ITERATION", i, "epsilon:", epsilon)
+                print(self.model.tdamn1.weight)
+                print(self.model.tdamn2.weight)
+                print(self.model.tdamn3.weight)
+                human_disp = True
+            count = self.play_game(human_disp, epsilon)
+            lifetimes.append(count)
+        return lifetimes
 
 
 class Agent:
@@ -44,13 +149,14 @@ class Agent:
                 print("GAME # " + str(i))
                 torch.cuda.empty_cache()
                 self.final_reward = 0
-                if (i + 1) * (j+1) % save_iter == 0:
+                if (i + 1) * (j + 1) % save_iter == 0:
                     for w in range(self.num_agents):
-                        file = open('./models/' + game_mode + '_trained_agent_' + str(w) + '_iter_' + str((i + 1)*(j+1)) + '.pkl',
+                        file = open('./models/' + game_mode + '_trained_agent_' + str(w) + '_iter_' + str(
+                            (i + 1) * (j + 1)) + '.pkl',
                                     'wb')
                         torch.save(self.models[w], file)
                         file.close()
-                if int((i+1)*(j+1) - 1) % disp_iter == 0:
+                if int((i + 1) * (j + 1) - 1) % disp_iter == 0:
                     if game_mode == 'runner':
                         self.interface = human_interface.Interface(human_player=False)
                     elif game_mode == 'snake':
@@ -227,10 +333,10 @@ class Agent:
 if __name__ == "__main__":
     # torch.cuda.set_device(0)
     torch.autograd.set_detect_anomaly(True)
-    bob = Agent(num_agents=2)
-    bob.load_models(iter_to_load=10000, human_training=False)  # load saved policy to see trained agent play
+    bob = CogAgent(verbose=False)
+    # bob.load_models(iter_to_load=10000, human_training=False)  # load saved policy to see trained agent play
     # bob.eval(10)
     # bob.learn_from_teacher(num_guided=4, lr=.01, game_mode='snake', gamma=.9)
     # bob.train(NUM_GAMES=1000001, max_explore=.9, trials_per_batch=100, lr=.001, gamma=.9, disp_iter=10000, save_iter=10000, game_mode='snake')
-    bob.train(NUM_GAMES=10, max_explore=0, lr=0, trials_per_batch=1, gamma=.9, disp_iter=1, save_iter=1000, game_mode='snake')
+    bob.train(epochs=1000, max_explore=.9, disp_iter=50, save_iter=100)
     # torch.cuda.device_count()
