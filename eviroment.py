@@ -3,6 +3,7 @@ import sys
 from tkinter import Tk
 import random
 import matplotlib.pyplot as plt
+import scipy.ndimage
 import torch
 from scipy.ndimage import zoom, rotate
 from scipy.spatial.distance import cdist
@@ -161,20 +162,33 @@ class SnakeEnv:
 
 class GridWorldRevolution:
 
-    def __init__(self, input_layout: str, num_goals: int = 10, hp=100, num_players: int = 1):
+    def __init__(self, input_layout: str, max_goals: int = 20, hp=25, num_players: int = 1, board_dim=20,
+                 abundance=.1):
         from PIL import Image
-        layout_file = Image.open(input_layout)
-        self.board_state = zoom(np.array(layout_file).mean(axis=2), .25)
+        layout_file = np.array(Image.open(input_layout))
+        print("Input layout has size", layout_file.shape)
+        if layout_file.shape[0] != layout_file.shape[1]:
+            raise ValueError("Board is expected to be square.")
+        factor = board_dim / layout_file.shape[0]
+        self.board_state = zoom(layout_file.mean(axis=2), factor)
+        print("Board has size", self.board_state.shape)
         self.num_players = num_players
-        med_val = np.mean(self.board_state.flatten())
+        med_val = np.mean(self.board_state)
+        # set the background color
         self.board_state[self.board_state <= med_val / .95] = .5
         self.board_state[self.board_state > med_val] = 0
         self.height, self.width = self.board_state.shape
         self.hp = hp
         self.board_state[0][self.board_state[0] == 0] = .5
-        self.home = np.nonzero(self.board_state[1] == 0)[0]  # always at top
-        self.goals = {self.set_goal() for _ in range(num_goals)}
-        self.cur_pos = [(1, np.random.choice(self.home)) for _ in range(num_players)]  # cur_pos denotes the top left corner of the 4 pixel agent
+
+        # reward state params
+        self.abundance = abundance
+        self.home = np.argwhere(self.board_state == 0)  # always at top
+        self.reward_freq_params = self._get_reward_freq_dist()
+        self.max_goals = max_goals
+        self.goals = {self.set_goal() for _ in range(10)}
+
+        self.cur_pos = [self.home[np.random.randint(len(self.home))] for _ in range(num_players)]  # cur_pos denotes the top left corner of the 4 pixel agent
         for loc in self.cur_pos:
             self.board_state[loc[0]:min(loc[0]+2, self.height), loc[1]:min(loc[1] + 2, self.width)] = 1
         self.cur_direction = ['d' for _ in range(num_players)]
@@ -183,9 +197,24 @@ class GridWorldRevolution:
         c_coord = np.tile(np.arange(self.width), (self.height, 1))
         self._loc_arr = np.stack([r_coord, c_coord], axis=2)
 
-    def set_goal(self, edge_margin=3):
-        goal = (np.random.rand(2) * [self.height - (2*edge_margin), self.width - (2*edge_margin)]).astype(int)
-        goal = (goal[0] + edge_margin, goal[1] + edge_margin)
+    def _get_reward_freq_dist(self):
+        base = np.zeros_like(self.board_state)
+        base[5, 5] = 1
+        base[15, 15] = 1
+        base = scipy.ndimage.gaussian_filter(base, sigma=3)
+        base[:3, :3] = 0
+        base[-3:, -3:] = 0
+        base /= np.sum(base)
+        return base
+
+    def set_goal(self):
+        # places a goal (rewarded) object onto the board.
+        goal = np.random.choice(self.reward_freq_params.size, p=self.reward_freq_params.flatten(), size=(1,))
+        goal_x = int(goal // self.board_state.shape[0])
+        goal_y = int(goal % self.board_state.shape[0])
+        goal = (goal_x, goal_y)
+        #goal = (np.random.rand(2) * [self.height - (2*edge_margin), self.width - (2*edge_margin)]).astype(int)
+        #goal = (goal[0] + edge_margin, goal[1] + edge_margin)
         check = self.board_state[goal]
         if check != 0:
             goal = self.set_goal()
@@ -225,26 +254,32 @@ class GridWorldRevolution:
             request = [self.cur_pos[pid][0], self.cur_pos[pid][1]]
             hit = self._preform_check_move(request, pid, direction)
         if hit:
-            self.hp -= .25
+            self.hp -= 1
         loc = tuple(self.cur_pos[pid])
         agent_coords = self._loc_arr[loc[0]:min(loc[0] + 2, self.height), loc[1]:min(loc[1] + 2, self.width)]
         agent_coords = agent_coords.reshape(-1, 2)
         agent_coords = {tuple(item) for item in agent_coords}
         intersect = agent_coords & self.goals
+
+        # some chance of adding new goal state
+        p = self.abundance * (1 - (len(self.goals) / self.max_goals)) / self.num_alive
+        if np.random.rand() < p:
+            self.goals.add(self.set_goal())
+
+        # compute loss / penalty
         if intersect:
             for item in intersect:
                 self.goals.remove(item)
-                self.goals.add(self.set_goal())
-            self.hp += 20
-            return -1
+            self.hp += 10
+            return .1
         if self.hp <= 0:
             self.num_alive -= 1
-            return 100
+            return -1
         return 0
 
     def step(self, pid=0):
-        self.hp -= .25
+        self.hp -= 1
         if self.hp <= 0:
             self.num_alive -= 1
-            return 100
+            return -1
         return 0

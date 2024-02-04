@@ -120,7 +120,7 @@ class Interface:
         cur_frame = self.display_frame(pid=pid)
         if self.record is not None:
             self.record.append([cur_frame, code, win_state])
-        if win_state > 0:
+        if win_state < 0:
             cur_frame = None
             if self.root is not None and self.E.num_alive == 0:
                 try:

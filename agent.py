@@ -99,7 +99,7 @@ class CogAgent:
             completion_ratio = i / epochs
             epsilon = max(max_explore * (1 - completion_ratio), .02)
             if (i + 1) % save_iter == 0:
-                file = open('./models/' + self.game_mode + '_iter_' + str(i) + '.pkl',
+                file = open('./trained_models/' + self.game_mode + '_iter_' + str(i) + '.pkl',
                             'wb')
                 pickle.dump(self.model, file)
             human_disp = False
@@ -151,7 +151,7 @@ class Agent:
                 self.final_reward = 0
                 if (i + 1) * (j + 1) % save_iter == 0:
                     for w in range(self.num_agents):
-                        file = open('./models/' + game_mode + '_trained_agent_' + str(w) + '_iter_' + str(
+                        file = open('./trained_models/' + game_mode + '_trained_agent_' + str(w) + '_iter_' + str(
                             (i + 1) * (j + 1)) + '.pkl',
                                     'wb')
                         torch.save(self.models[w], file)
@@ -215,10 +215,10 @@ class Agent:
                 agent_response = [record[:, 2]]  # needs to be list to comply with meditation expectations
                 if lr != 0:
                     self.meditate(gamma, reward_dict, agent_mem, agent_response, self.models[0], self.optimizers[0])
-        # set both models to the supervised one
+        # set both trained_models to the supervised one
         for j in range(self.num_agents):
             self.models[j].load_state_dict(copy.deepcopy(self.models[0].state_dict()))
-        file = open('./models/' + game_mode + '_human_trained_iter_' + str(num_guided) + '.pkl', 'wb')
+        file = open('./trained_models/' + game_mode + '_human_trained_iter_' + str(num_guided) + '.pkl', 'wb')
         torch.save(self.models[0], file)
 
     def meditate(self, gamma, reward_dict, agent_mem, agent_response, model, optimizer):
@@ -324,10 +324,17 @@ class Agent:
     def load_models(self, iter_to_load, game_mode='snake', human_training=False):
         for i in range(self.num_agents):
             if not human_training:
-                fname = './models/' + game_mode + '_trained_agent_' + str(i) + '_iter_' + str(iter_to_load) + '.pkl'
+                fname = './trained_models/' + game_mode + '_trained_agent_' + str(i) + '_iter_' + str(iter_to_load) + '.pkl'
             else:
-                fname = './models/' + game_mode + '_human_trained_iter_' + str(iter_to_load) + '.pkl'
+                fname = './trained_models/' + game_mode + '_human_trained_iter_' + str(iter_to_load) + '.pkl'
             self.models[i] = torch.load(fname)
+
+
+
+class ReverbAgent:
+
+    def __init__(self):
+
 
 
 if __name__ == "__main__":

@@ -103,11 +103,11 @@ def partial_observability_filter(global_state, observe_dist, origin, pad_value=.
         raise ValueError("y coord is negative")
     elif loc[1] < 0:
         raise ValueError("x coord is negative")
-    elif loc[0] >= global_state.shape[0] - 1:
-        raise ValueError("y coord to large")
-    elif loc[1] >= global_state.shape[1] - 1:
+    elif loc[0] > global_state.shape[0] - 1:
+        raise ValueError("y coord too large")
+    elif loc[1] > global_state.shape[1] - 1:
         print(np.array(global_state))
-        raise ValueError("x coord to large")
+        raise ValueError("x coord too large")
     up = loc[0]
     lo = loc[0] + 2 * observe_dist + 1
     le = loc[1]
