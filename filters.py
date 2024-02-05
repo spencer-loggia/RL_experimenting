@@ -98,7 +98,7 @@ def partial_observability_filter(global_state, observe_dist, origin, pad_value=.
 
     :return:
     """
-    loc = origin[0]
+    loc = origin
     if loc[0] < 0:
         raise ValueError("y coord is negative")
     elif loc[1] < 0:

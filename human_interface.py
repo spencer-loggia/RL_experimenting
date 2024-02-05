@@ -50,25 +50,25 @@ class Interface:
 
     def leftKey(self, event):
         if self.human_player:
-            if self.E.move('l') == 1 and self.root is not None:
+            if self.E.move('l') < 0 and self.root is not None:
                 #self.canvas.destroy()
                 self.root.destroy()
 
     def rightKey(self, event):
         if self.human_player:
-            if self.E.move('r') == 1 and self.root is not None:
+            if self.E.move('r') < 0 and self.root is not None:
                 #self.canvas.destroy()
                 self.root.destroy()
 
     def upKey(self, event):
         if self.human_player:
-            if self.E.move('u') == 1 and self.root is not None:
+            if self.E.move('u') < 0 and self.root is not None:
                 # self.canvas.destroy()
                 self.root.destroy()
 
     def downKey(self, event):
         if self.human_player:
-            if self.E.move('d') == 1 and self.root is not None:
+            if self.E.move('d') < 0 and self.root is not None:
                 # self.canvas.destroy()
                 self.root.destroy()
 
@@ -76,7 +76,7 @@ class Interface:
         if toContinue:
             board_img = np.array(self.raw_state)
             if self.observe_dist is not None:
-                cur_pos = tuple(self.E.cur_pos[pid])
+                cur_pos = self.E.cur_pos[pid]
                 x = filters.partial_observability_filter(board_img, self.observe_dist, cur_pos)
             else:
                 x = board_img  # .cuda(0)
@@ -84,7 +84,7 @@ class Interface:
                 time.sleep(.05)
                 try:
                     self.canvas.delete('all')
-                    np_img = scipy.ndimage.zoom(board_img * int(255 / 2), 8, order=0)
+                    np_img = scipy.ndimage.zoom(x * int(255 / 2), 8, order=0)
                     img = ImageTk.PhotoImage(image=Image.fromarray(np_img), master=self.root)
                     self.canvas.create_image(1, 2, anchor="nw", image=img)
                     self.canvas.pack()
@@ -131,14 +131,14 @@ class Interface:
 
     def game_loop(self):
         state = 0
-        while state <= 0:
+        while state >= 0:
             time.sleep(.075)
             state, cur_frame = self.update_board()
         return state
 
 
 if __name__ == "__main__":
-    test = Interface(game_mode='world', grid_layout='data/layouts/10_10_maze.png')
+    test = Interface(game_mode='world', grid_layout='data/layouts/10_10_maze.png', observe_dist=2)
     print("you scored:" + str(test.game_loop()))
 
 

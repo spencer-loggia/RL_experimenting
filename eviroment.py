@@ -162,7 +162,7 @@ class SnakeEnv:
 
 class GridWorldRevolution:
 
-    def __init__(self, input_layout: str, max_goals: int = 20, hp=25, num_players: int = 1, board_dim=20,
+    def __init__(self, input_layout: str, max_goals: int = 20, hp=30, num_players: int = 1, board_dim=20,
                  abundance=.1):
         from PIL import Image
         layout_file = np.array(Image.open(input_layout))
@@ -183,14 +183,19 @@ class GridWorldRevolution:
 
         # reward state params
         self.abundance = abundance
-        self.home = np.argwhere(self.board_state == 0)  # always at top
         self.reward_freq_params = self._get_reward_freq_dist()
         self.max_goals = max_goals
-        self.goals = {self.set_goal() for _ in range(10)}
+        self.goals = {self.set_goal() for _ in range(15)}
 
-        self.cur_pos = [self.home[np.random.randint(len(self.home))] for _ in range(num_players)]  # cur_pos denotes the top left corner of the 4 pixel agent
-        for loc in self.cur_pos:
-            self.board_state[loc[0]:min(loc[0]+2, self.height), loc[1]:min(loc[1] + 2, self.width)] = 1
+        # set start positions
+        self.cur_pos = []
+        for _ in range(num_players):
+            home = np.argwhere(self.board_state == 0)
+            loc = home[np.random.randint(len(home))] # cur_pos denotes the top left corner of the 4 pixel agent
+            loc = (min(board_dim - 4, loc[0]), min(board_dim - 4, loc[1]))
+            loc = (max(4, loc[0]), max(4, loc[1]))
+            self.cur_pos.append(loc)
+            self.board_state[loc[0], loc[1]] = 1
         self.cur_direction = ['d' for _ in range(num_players)]
         self.num_alive = num_players
         r_coord = np.tile(np.arange(self.height), (self.width, 1)).T
@@ -228,35 +233,39 @@ class GridWorldRevolution:
                  request[1]:request[1] + 2])
         ).flatten():
             loc = self.cur_pos[pid]
-            self.board_state[loc[0]:loc[0] + 2, loc[1]:loc[1] + 2] = 0
+            self.board_state[loc[0], loc[1]] = 0
             self.cur_pos[pid] = request
             self.cur_direction[pid] = direction
             loc = self.cur_pos[pid]
-            self.board_state[loc[0]:min(loc[0] + 2, self.height), loc[1]:min(loc[1] + 2, self.width)] = 1
+            self.board_state[loc[0], loc[1]] = 1
             return 0
         return 1
 
     def move(self, direction, pid: int = 0):
-        self.hp -= 1
         if direction == 'r':
             request = [self.cur_pos[pid][0], self.cur_pos[pid][1] + 1]
+            self.hp -= 1
             hit = self._preform_check_move(request, pid, direction)
         elif direction == 'l':
             request = [self.cur_pos[pid][0], self.cur_pos[pid][1] - 1]
+            self.hp -= 1
             hit = self._preform_check_move(request, pid, direction)
         elif direction == 'u':
             request = [self.cur_pos[pid][0] - 1, self.cur_pos[pid][1]]
+            self.hp -= 1
             hit = self._preform_check_move(request, pid, direction)
         elif direction == 'd':
             request = [self.cur_pos[pid][0] + 1, self.cur_pos[pid][1]]
+            self.hp -= 1
             hit = self._preform_check_move(request, pid, direction)
         else:
             request = [self.cur_pos[pid][0], self.cur_pos[pid][1]]
+            self.hp -= .5
             hit = self._preform_check_move(request, pid, direction)
         if hit:
             self.hp -= 1
         loc = tuple(self.cur_pos[pid])
-        agent_coords = self._loc_arr[loc[0]:min(loc[0] + 2, self.height), loc[1]:min(loc[1] + 2, self.width)]
+        agent_coords = self._loc_arr[loc[0], loc[1]]
         agent_coords = agent_coords.reshape(-1, 2)
         agent_coords = {tuple(item) for item in agent_coords}
         intersect = agent_coords & self.goals
@@ -271,10 +280,10 @@ class GridWorldRevolution:
             for item in intersect:
                 self.goals.remove(item)
             self.hp += 10
-            return .1
+            return 1
         if self.hp <= 0:
             self.num_alive -= 1
-            return -1
+            return -2
         return 0
 
     def step(self, pid=0):

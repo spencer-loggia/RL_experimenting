@@ -56,10 +56,10 @@ def clone(model: ElegantReverbNetwork):
 
 
 class MetaAgent:
-    def __init__(self, lr=.001, dev='cpu', temporal_discount=.9, verbose=False, num_nodes=4, spatial=5):
+    def __init__(self, lr=.0001, dev='cpu', temporal_discount=.9, verbose=False, num_nodes=4, spatial=5, eps_decay=.00001, eps_init=.5):
         self.epsilon_min = .01
-        self.epsilon_slope = .00002
-        self.epsilon_init = .5
+        self.epsilon_slope = eps_decay
+        self.epsilon_init = eps_init
         self.interface = None
         self.spatial = 5
         self.start_nodes = 3
@@ -73,7 +73,7 @@ class MetaAgent:
         adj[2, :] = 1
         self.model = ElegantReverbNetwork(num_nodes=num_nodes, node_shape=(1, 3, spatial, spatial), kernel_size=4,
                                           edge_module=ElegantReverb, track_activation_history=True, mask=adj)
-        self.stim_frames = 1
+        self.stim_frames = 2
         self.actions = ['l', 'r', 'u', 'd', None]
         self.action_decoder = torch.nn.Linear(in_features=self.spatial**2, out_features=5)
         self.gradient_optimizer = None
@@ -84,10 +84,10 @@ class MetaAgent:
 
         self.verbose = verbose
 
-    def step(self, generation):
+    def step(self, generation, pid=0):
         obs = filters.partial_observability_filter(self.cur_frame,
                                                    observe_dist=math.floor(self.spatial / 2),
-                                                   origin=self.interface.E.cur_pos).squeeze()
+                                                   origin=self.interface.E.cur_pos[pid]).squeeze()
         temp = torch.zeros_like(self.model.states)
         temp[0, 0, :, :] += obs
         obs = temp.detach().clone()
@@ -114,9 +114,6 @@ class MetaAgent:
                                                        grid_layout=env_layout)
         # clone for next generations
         self.model = clone(self.model)
-        self.gradient_optimizer = torch.optim.SGD(list(self.model.parameters()) +
-                                                   list(self.action_decoder.parameters()),
-                                                   self.lr*(.99985**generation))
         self.gradient_optimizer.zero_grad()
         life_history = []
         exp_reward_history = []
@@ -132,9 +129,12 @@ class MetaAgent:
             span += 1
         return life_history, exp_reward_history, span
 
-    def evolve(self, generations, disp_iter=5000, snapshot_iter=5000, model_dir='./'):
+    def evolve(self, generations, disp_iter=1000, snapshot_iter=10000, model_dir='./'):
         loss_history = []
         lifespan_history = []
+        self.gradient_optimizer = torch.optim.Adam(list(self.model.parameters()) +
+                                                   list(self.action_decoder.parameters()),
+                                                   self.lr)
         for generation in range(generations):
             print("GENERATION", generation, "OF", generations)
             if (generation % disp_iter) == 0:
@@ -149,14 +149,23 @@ class MetaAgent:
             if ((generation + 1) % snapshot_iter) == 0:
                 with open(os.path.join(model_dir, "reverb_snapshot_" + str(generation) + ".pkl"), "wb") as f:
                     pickle.dump(self, f)
-            loss.backward(create_graph=False)
+            loss.backward(create_graph=True)
             self.gradient_optimizer.step()
         return loss_history, lifespan_history
 
 
 if __name__ == '__main__':
+    LOAD = "/home/spencer/Projects/RL_experimenting/trained_models/reverb_snapshot_199999.pkl"
+    GENERATIONS = 100000
+    EPS_INIT = .5
+    eps_decay = .75 * EPS_INIT / GENERATIONS
     from matplotlib import pyplot as plt
-    agent = MetaAgent()
-    evolutionary_history, lifespan_history = agent.evolve(100000, model_dir="trained_models")
+    if LOAD is not None:
+        with open(LOAD, "rb") as f:
+            agent = pickle.load(f)
+        agent.eps_decay = eps_decay
+    else:
+        agent = MetaAgent(eps_decay=eps_decay, eps_init=EPS_INIT)
+    evolutionary_history, lifespan_history = agent.evolve(GENERATIONS, model_dir="trained_models")
     plt.plot(uniform_filter(np.array(lifespan_history), 100))
     plt.show()
