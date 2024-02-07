@@ -138,7 +138,7 @@ class Interface:
 
 
 if __name__ == "__main__":
-    test = Interface(game_mode='world', grid_layout='data/layouts/10_10_maze.png', observe_dist=2)
+    test = Interface(game_mode='world', grid_layout='data/layouts/10_10_maze.png', observe_dist=3)
     print("you scored:" + str(test.game_loop()))
 
 

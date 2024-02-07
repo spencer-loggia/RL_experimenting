@@ -162,7 +162,7 @@ class SnakeEnv:
 
 class GridWorldRevolution:
 
-    def __init__(self, input_layout: str, max_goals: int = 20, hp=30, num_players: int = 1, board_dim=20,
+    def __init__(self, input_layout: str, max_goals: int = 20, hp=25, num_players: int = 1, board_dim=20,
                  abundance=.1):
         from PIL import Image
         layout_file = np.array(Image.open(input_layout))
@@ -284,7 +284,7 @@ class GridWorldRevolution:
         if self.hp <= 0:
             self.num_alive -= 1
             return -2
-        return 0
+        return .05
 
     def step(self, pid=0):
         self.hp -= 1

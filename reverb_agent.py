@@ -56,24 +56,26 @@ def clone(model: ElegantReverbNetwork):
 
 
 class MetaAgent:
-    def __init__(self, lr=.0001, dev='cpu', temporal_discount=.9, verbose=False, num_nodes=4, spatial=5, eps_decay=.00001, eps_init=.5):
+    def __init__(self, lr=.0001, dev='cpu', temporal_discount=.9, verbose=False, num_nodes=4, spatial=7, eps_decay=.00001, eps_init=.5):
         self.epsilon_min = .01
         self.epsilon_slope = eps_decay
         self.epsilon_init = eps_init
         self.interface = None
-        self.spatial = 5
+        self.spatial = spatial
         self.start_nodes = 3
         self.input_node = -1
         self.decode_node = 2
         self.num_nodes = num_nodes
         self.reward_node = 3
         self.lr = lr
-        adj = torch.zeros((num_nodes, num_nodes))
-        adj[:, 2] = 1
-        adj[2, :] = 1
-        self.model = ElegantReverbNetwork(num_nodes=num_nodes, node_shape=(1, 3, spatial, spatial), kernel_size=4,
+        adj = [[0, 0, 1, 0],
+               [0, 0, 1, 0],
+               [1, 1, 0, 1],
+               [0, 0, 1, 0]]
+        adj = torch.Tensor(adj)
+        self.model = ElegantReverbNetwork(num_nodes=num_nodes, node_shape=(1, 4, spatial, spatial), kernel_size=4,
                                           edge_module=ElegantReverb, track_activation_history=True, mask=adj)
-        self.stim_frames = 2
+        self.stim_frames = 3
         self.actions = ['l', 'r', 'u', 'd', None]
         self.action_decoder = torch.nn.Linear(in_features=self.spatial**2, out_features=5)
         self.gradient_optimizer = None
@@ -149,14 +151,14 @@ class MetaAgent:
             if ((generation + 1) % snapshot_iter) == 0:
                 with open(os.path.join(model_dir, "reverb_snapshot_" + str(generation) + ".pkl"), "wb") as f:
                     pickle.dump(self, f)
-            loss.backward(create_graph=True)
+            loss.backward()
             self.gradient_optimizer.step()
         return loss_history, lifespan_history
 
 
 if __name__ == '__main__':
-    LOAD = "/home/spencer/Projects/RL_experimenting/trained_models/reverb_snapshot_199999.pkl"
-    GENERATIONS = 100000
+    LOAD = None
+    GENERATIONS = 50000
     EPS_INIT = .5
     eps_decay = .75 * EPS_INIT / GENERATIONS
     from matplotlib import pyplot as plt
