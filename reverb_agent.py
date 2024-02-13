@@ -56,7 +56,7 @@ def clone(model: ElegantReverbNetwork):
 
 
 class MetaAgent:
-    def __init__(self, lr=.0001, dev='cpu', temporal_discount=.9, verbose=False, num_nodes=4, spatial=7, eps_decay=.00001, eps_init=.5):
+    def __init__(self, lr=.0001, dev='cpu', temporal_discount=.9, verbose=False, num_nodes=4, spatial=5, eps_decay=.00001, eps_init=.5):
         self.epsilon_min = .01
         self.epsilon_slope = eps_decay
         self.epsilon_init = eps_init
@@ -68,14 +68,15 @@ class MetaAgent:
         self.num_nodes = num_nodes
         self.reward_node = 3
         self.lr = lr
-        adj = [[0, 0, 1, 0],
-               [0, 0, 1, 0],
-               [1, 1, 0, 1],
-               [0, 0, 1, 0]]
-        adj = torch.Tensor(adj)
-        self.model = ElegantReverbNetwork(num_nodes=num_nodes, node_shape=(1, 4, spatial, spatial), kernel_size=4,
+        adj = None
+        # adj = [[0, 1, 1, 0],
+        #        [0, 0, 1, 0],
+        #        [1, 1, 1, 1],
+        #        [0, 0, 1, 1]]
+        # adj = torch.Tensor(adj)
+        self.model = ElegantReverbNetwork(num_nodes=num_nodes, node_shape=(1, 3, spatial, spatial), kernel_size=4,
                                           edge_module=ElegantReverb, track_activation_history=True, mask=adj)
-        self.stim_frames = 3
+        self.stim_frames = 1
         self.actions = ['l', 'r', 'u', 'd', None]
         self.action_decoder = torch.nn.Linear(in_features=self.spatial**2, out_features=5)
         self.gradient_optimizer = None
@@ -131,7 +132,7 @@ class MetaAgent:
             span += 1
         return life_history, exp_reward_history, span
 
-    def evolve(self, generations, disp_iter=1000, snapshot_iter=10000, model_dir='./'):
+    def evolve(self, generations, disp_iter=2000, snapshot_iter=10000, model_dir='./'):
         loss_history = []
         lifespan_history = []
         self.gradient_optimizer = torch.optim.Adam(list(self.model.parameters()) +
@@ -149,7 +150,7 @@ class MetaAgent:
             loss_history.append(loss.detach().cpu().item() / span)
             print("Agent loss:", loss_history[-1], "\n")
             if ((generation + 1) % snapshot_iter) == 0:
-                with open(os.path.join(model_dir, "reverb_snapshot_" + str(generation) + ".pkl"), "wb") as f:
+                with open(os.path.join(model_dir, "reverb_snapshot_fc_o2_1step" + str(generation) + ".pkl"), "wb") as f:
                     pickle.dump(self, f)
             loss.backward()
             self.gradient_optimizer.step()
@@ -158,16 +159,16 @@ class MetaAgent:
 
 if __name__ == '__main__':
     LOAD = None
-    GENERATIONS = 50000
-    EPS_INIT = .5
-    eps_decay = .75 * EPS_INIT / GENERATIONS
+    GENERATIONS = 400000
+    EPS_INIT = .6
+    eps_decay = .7 * EPS_INIT / GENERATIONS
     from matplotlib import pyplot as plt
     if LOAD is not None:
         with open(LOAD, "rb") as f:
             agent = pickle.load(f)
         agent.eps_decay = eps_decay
     else:
-        agent = MetaAgent(eps_decay=eps_decay, eps_init=EPS_INIT)
+        agent = MetaAgent(eps_decay=eps_decay, eps_init=EPS_INIT, lr=.0001)
     evolutionary_history, lifespan_history = agent.evolve(GENERATIONS, model_dir="trained_models")
-    plt.plot(uniform_filter(np.array(lifespan_history), 100))
+    plt.plot(uniform_filter(np.array(lifespan_history), 200))
     plt.show()

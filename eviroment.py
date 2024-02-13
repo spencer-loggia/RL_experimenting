@@ -162,8 +162,8 @@ class SnakeEnv:
 
 class GridWorldRevolution:
 
-    def __init__(self, input_layout: str, max_goals: int = 20, hp=25, num_players: int = 1, board_dim=20,
-                 abundance=.1):
+    def __init__(self, input_layout: str, max_goals: int = 20, hp=50, num_players: int = 1, board_dim=20,
+                 abundance=.05):
         from PIL import Image
         layout_file = np.array(Image.open(input_layout))
         print("Input layout has size", layout_file.shape)
